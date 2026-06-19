@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+# mock_claude — a controllable fake `claude` for the hermetic fuzz suite.
+#
+# grok-bitch invokes this via --fallback-bin when grok is missing / out of usage.
+# It accepts claude's headless `-p --output-format json` flags (ignoring what it
+# doesn't need), performs a scripted behavior from $GROK_BITCH_MOCK_SPEC_CLAUDE
+# (falling back to $GROK_BITCH_MOCK_SPEC), and emits the same shape the real
+# `claude -p --output-format json` does: a JSON ARRAY of events whose final
+# type=="result" element carries the answer. The point is to prove the harness
+# cages the FALLBACK executor (guard/revert/resource/verify) exactly like grok.
+#
+# Like mock_grok, it is NOT sandboxed — so it can do the very things the
+# guard+revert layer must catch.
+
+import argparse
+import json
+import os
+import sys
+import time
+
+
+def emit(spec):
+    mode = spec.get("stdout", "json")
+    text = spec.get("text", "Ohh geez, I-I think I did it? Look at me, I hope it's right...")
+    if mode == "json":
+        result = {
+            "type": "result", "subtype": "success", "is_error": False,
+            "result": text, "session_id": "mock-claude-0001",
+            "stop_reason": "end_turn", "num_turns": 1,
+        }
+    elif mode == "error":
+        result = {
+            "type": "result", "subtype": "error_during_execution", "is_error": True,
+            "result": spec.get("error_message", "mock claude error"),
+            "session_id": "mock-claude-0001",
+        }
+    elif mode == "garbage":
+        sys.stdout.write("this is not <json> at all !!! {oops")
+        sys.stdout.flush()
+        return
+    elif mode == "none":
+        return
+    # real `claude -p --output-format json` emits an array of events; the result
+    # is the last element. A minimal init + result array exercises our parser.
+    events = [
+        {"type": "system", "subtype": "init", "session_id": "mock-claude-0001"},
+        result,
+    ]
+    sys.stdout.write(json.dumps(events))
+    sys.stdout.flush()
+
+
+def do_action(a, cwd):
+    op = a.get("op")
+    if op == "write":
+        p = a["path"]
+        p = p if os.path.isabs(p) else os.path.join(cwd, p)
+        os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+        mode = "a" if a.get("append") else "w"
+        with open(p, mode) as f:
+            f.write(a.get("content", "mock-change\n"))
+    elif op == "delete":
+        p = a["path"]
+        p = p if os.path.isabs(p) else os.path.join(cwd, p)
+        if os.path.isdir(p):
+            import shutil
+            shutil.rmtree(p, ignore_errors=True)
+        elif os.path.exists(p):
+            os.remove(p)
+    elif op == "sleep":
+        time.sleep(float(a.get("secs", 1)))
+
+
+def main():
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument("-p", "--print", dest="prompt", nargs="?", default=None)
+    p.add_argument("--model", default=None)
+    p.add_argument("--output-format", default="json")
+    args, _unknown = p.parse_known_args()
+
+    cwd = os.getcwd()   # grok-bitch runs the executor with cwd=workspace
+    raw = os.environ.get("GROK_BITCH_MOCK_SPEC_CLAUDE") or \
+        os.environ.get("GROK_BITCH_MOCK_SPEC", "{}")
+    try:
+        spec = json.loads(raw)
+    except json.JSONDecodeError:
+        spec = {}
+
+    for a in spec.get("actions", []):
+        do_action(a, cwd)
+
+    emit(spec)
+    sys.exit(int(spec.get("exit", 0)))
+
+
+if __name__ == "__main__":
+    main()

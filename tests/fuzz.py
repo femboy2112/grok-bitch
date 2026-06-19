@@ -27,6 +27,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 GB = ROOT / "grok-bitch"
 MOCK = HERE / "mock_grok"
+MOCK_CLAUDE = HERE / "mock_claude"
 
 LAW = "INVIOLABLE\n"
 LOCK = "locked-v1\n"
@@ -104,6 +105,8 @@ def main():
         print(f"mock_grok not found at {MOCK}")
         return 2
     os.chmod(MOCK, 0o755)
+    if MOCK_CLAUDE.exists():
+        os.chmod(MOCK_CLAUDE, 0o755)
 
     tmp = Path(tempfile.mkdtemp(prefix="grokbitch-fuzz-"))
     print(f"grok-bitch hermetic fuzz/containment suite  (workdir {tmp})")
@@ -319,6 +322,71 @@ def main():
     expect("resource_caps_on_by_default", rc, rep, 0, "success",
            lambda r: True if r.get("limits", {}).get("enforced_by") != "DISABLED"
            else "resource caps disabled by default!", err)
+
+    # ----- Claude fallback (Morty becomes opus/medium when grok is unavailable) -----
+
+    # 21. grok binary MISSING -> fall back to Claude; benign edit still applied,
+    #     protected path untouched, executor reported as claude-fallback.
+    ws = make_ws(tmp)
+    rc, rep, out, err = run_gb(
+        "append a line", ws,
+        {"actions": [{"op": "write", "path": "target.txt", "content": "L3\n", "append": True}]},
+        extra_args=["--grok-bin", "/nonexistent/grok-xyz", "--fallback-bin", str(MOCK_CLAUDE)])
+    def _fb_missing(r):
+        if r.get("executor") != "claude-fallback":
+            return f"executor not claude-fallback: {r.get('executor')}"
+        if "target.txt" not in r.get("changes", {}).get("modified", []):
+            return f"fallback edit not applied: {r.get('changes')}"
+        if (ws / "docs/core/law.txt").read_text() != LAW:
+            return "protected law.txt changed under fallback!"
+        if not r.get("fallback", {}).get("used"):
+            return "fallback block not recorded"
+        return True
+    expect("fallback_when_grok_missing", rc, rep, 0, "success", _fb_missing, err)
+
+    # 22. grok present but OUT OF USAGE -> runtime fall back to Claude, which does
+    #     the work. grok mock errors with a usage signature; claude mock writes.
+    ws = make_ws(tmp)
+    rc, rep, out, err = run_gb(
+        "do the thing", ws,
+        {"actions": [], "stdout": "error", "error_message": "Error: out of usage (quota exceeded)"},
+        extra_args=["--fallback-bin", str(MOCK_CLAUDE)],
+        env_extra={"GROK_BITCH_MOCK_SPEC_CLAUDE": json.dumps(
+            {"actions": [{"op": "write", "path": "target.txt", "content": "L3\n", "append": True}]})})
+    def _fb_usage(r):
+        if r.get("executor") != "claude-fallback":
+            return f"did not fall back on out-of-usage: executor={r.get('executor')}"
+        if "target.txt" not in r.get("changes", {}).get("modified", []):
+            return f"fallback edit not applied: {r.get('changes')}"
+        if "out of usage" not in (r.get("fallback", {}).get("reason") or "").lower():
+            return f"fallback reason missing usage signal: {r.get('fallback')}"
+        return True
+    expect("fallback_when_grok_out_of_usage", rc, rep, 0, "success", _fb_usage, err)
+
+    # 23. the fallback executor is CAGED too: Claude tampering with a guarded path
+    #     -> blocked + reverted, exactly like grok.
+    ws = make_ws(tmp)
+    rc, rep, out, err = run_gb(
+        "tamper via fallback", ws,
+        {"actions": [{"op": "write", "path": "docs/core/law.txt", "content": "HACKED\n"}]},
+        extra_args=["--grok-bin", "/nonexistent/grok-xyz", "--fallback-bin", str(MOCK_CLAUDE)])
+    def _fb_guarded(r):
+        if (ws / "docs/core/law.txt").read_text() != LAW:
+            return "law.txt NOT restored after fallback violation"
+        if r.get("executor") != "claude-fallback":
+            return f"executor not claude-fallback: {r.get('executor')}"
+        if not r.get("guard", {}).get("violations"):
+            return "no violation recorded for fallback"
+        return True
+    expect("fallback_executor_is_caged", rc, rep, 10, "guard_violation", _fb_guarded, err)
+
+    # 24. --no-fallback + grok missing -> preflight error (no silent substitution).
+    ws = make_ws(tmp)
+    rc, rep, out, err = run_gb(
+        "should refuse", ws, {"actions": []},
+        extra_args=["--grok-bin", "/nonexistent/grok-xyz", "--fallback-bin",
+                    str(MOCK_CLAUDE), "--no-fallback"])
+    expect("no_fallback_flag_refuses", rc, rep, 14, "preflight_error", stderr=err)
 
     print("=" * 70)
     print(f"RESULT: {len(PASS)} passed, {len(FAIL)} failed")

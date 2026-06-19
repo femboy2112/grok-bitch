@@ -107,8 +107,18 @@ via a kernel cgroup, with a `/proc` watchdog fallback. If a legitimate
 
 Run `grok-bitch doctor --quiet` once per session if unsure — it returns JSON
 with `ready: true/false` (checks grok is installed+authed, Landlock available, a
-resource enforcer exists, git present, run dir writable). `grok-bitch profiles`
-lists the profiles; `grok-bitch selftest` runs the hermetic containment suite.
+resource enforcer exists, git present, run dir writable) and an `executor_plan`.
+`grok-bitch profiles` lists the profiles; `grok-bitch selftest` runs the hermetic
+containment suite.
+
+## If grok is down, it still works (Opus fallback)
+
+If grok is **missing** or **out of usage**, Morty automatically falls back to
+**Claude `opus`/`medium`**, run through the *same* cage (guard+revert, resource
+caps, verify, persona). The result JSON shows `"executor": "claude-fallback"` and
+a `"fallback"` block. You don't have to do anything; tune with `--fallback-model`
+/ `--fallback-effort`, or `--no-fallback` to fail instead. (Caveat: the fallback
+path has no OS sandbox, so rely on guard/verify, not an OS write-wall, there.)
 
 ## The persona & the disclaimer
 

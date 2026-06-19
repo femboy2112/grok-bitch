@@ -66,6 +66,17 @@ claude plugin marketplace add femboy2112/grok-bitch   # or a local path / git UR
 claude plugin install grok-bitch@grok-bitch
 ```
 
+**Activate it** — you can **hot-load it into a running session** (no restart):
+
+```
+/reload-plugins
+```
+
+That one in-session command loads the skill, the subagents, and the `bin/` onto
+`PATH` (small token cost on the next turn). Alternatively just start a new
+`claude` session — plugins auto-load at startup. (Note: `claude plugin update`
+*does* need a restart to apply; `install` + `/reload-plugins` does not.)
+
 What the plugin ships:
 
 - **A Skill** (`grok-bitch`) — its description sits in Claude's context, so Claude
@@ -102,6 +113,42 @@ Inspect it any time with `claude plugin details grok-bitch@grok-bitch`.
 
 ---
 
+## When grok is unavailable: the Opus fallback
+
+If the `grok` binary is **not found**, or grok reports it is **out of usage**
+(quota / rate-limit / auth / unavailable), grok-bitch does not hard-fail —
+"Morty" falls back to **Claude (`opus`, `medium` effort by default)**, running the
+task through the **exact same cage**: guard+revert, resource caps, the verify gate,
+and the same Morty persona. Only the underlying model changes.
+
+```bash
+# grok missing or out of usage -> automatically runs opus/medium as Morty
+grok-bitch run "…" --dir /repo --profile edit --verify "make check"
+
+# tune or disable the fallback
+grok-bitch run "…" --fallback-model opus --fallback-effort medium   # defaults
+grok-bitch run "…" --no-fallback                                    # fail instead
+```
+
+Two kinds of trigger:
+
+- **grok binary missing** → chosen at preflight (the run starts on Claude).
+- **grok runs but is out of usage** → detected from grok's own error output and
+  **retried** on Claude automatically.
+
+The result JSON reports `"executor": "claude-fallback"` and a `"fallback"` block
+(reason, model, effort); `grok-bitch doctor` shows the `executor plan` and stays
+**READY** on the fallback even when grok is absent.
+
+> Confinement caveat: the fallback executor has **no OS sandbox** (Claude has no
+> Landlock here), so out-of-workspace writes are not kernel-blocked on this path.
+> The deterministic guarantees that matter — guard+revert of protected paths,
+> resource caps, the verify gate, and destructive-command/tool denies — all still
+> apply. (This is proven by the hermetic suite: the fallback executor is caged
+> exactly like grok.)
+
+---
+
 ## Quickstart
 
 ```bash
@@ -128,9 +175,10 @@ summary + the disclaimer on **stderr**.
 ## Subcommands
 
 - `grok-bitch run <task> [opts]` — run a caged task. The workhorse.
-- `grok-bitch doctor [--offline]` — environment readiness check (JSON).
+- `grok-bitch doctor [--offline]` — environment readiness check (JSON); reports the
+  `executor plan` (grok, or the Opus fallback when grok is unavailable).
 - `grok-bitch profiles` — list safety profiles (JSON).
-- `grok-bitch selftest` — run the hermetic fuzz/containment suite (no grok calls).
+- `grok-bitch selftest` — run the hermetic fuzz/containment suite (no grok/Claude calls).
 
 ### Key `run` options
 
@@ -151,6 +199,10 @@ summary + the disclaimer on **stderr**.
 | `--dry-run` | print the plan; don't run grok |
 | `--report PATH` | also write the full JSON report here |
 | `--grok-bin PATH` | override the grok binary (used by the test suite) |
+| `--fallback-model M` | model for the Opus fallback when grok is unavailable (default `opus`) |
+| `--fallback-effort E` | effort for the fallback (`low`…`max`, default `medium`) |
+| `--fallback-bin PATH` | the Claude binary for the fallback (or `GROK_BITCH_CLAUDE_BIN`) |
+| `--no-fallback` | disable the fallback; fail if grok is unavailable |
 
 ---
 
@@ -210,12 +262,15 @@ A safety breach always surfaces.
   "ok": true,
   "exit_code": 0,
   "profile": "scratch", "sandbox": "workspace", "web": false,
+  "executor": "grok",            // or "claude-fallback" when grok is unavailable
+  "fallback": {"used": false},   // when used: {used, reason, model, effort, bin}
   "guards": [{"path": ".../docs/core", "source": "auto"}],
   "guard":  {"violations": [], "reverted": [], "reverted_enabled": true},
   "changes": {"created": [...], "modified": [...], "deleted": [...]},
-  "grok":   {"text": "...", "exit": 0, "duration_s": 13.6,
-             "peak_rss_mb": 180.2, "mem_max_mb": 4096, "cpu_cores": 4,
-             "enforced_by": "systemd-cgroup", "grok_json": {"sessionId": "..."}},
+  "grok":   {"text": "...", "exit": 0, "duration_s": 13.6, "executor": "grok",
+             "model": "grok-build", "peak_rss_mb": 180.2, "mem_max_mb": 4096,
+             "cpu_cores": 4, "enforced_by": "systemd-cgroup",
+             "grok_json": {"sessionId": "..."}},
   "verify": {"cmd": "make check", "passed": true, "tail": "..."},
   "limits": {"mem_max_mb": 4096, "cpu_max_cores": 4, "enforced_by": "systemd-cgroup"},
   "run_dir": "~/.cache/grok-bitch/runs/...",
@@ -256,15 +311,18 @@ Every invocation, on every exit, prints to stderr and embeds in the JSON:
 ## Testing
 
 ```bash
-grok-bitch selftest          # hermetic: 20 adversarial scenarios, no grok calls, deterministic
+grok-bitch selftest          # hermetic: 24 adversarial scenarios, no model calls, deterministic
 python3 tests/live_smoke.py  # live: real grok-build (needs auth+network)
 ```
 
-The **hermetic** suite (`tests/fuzz.py` + `tests/mock_grok`) is the deterministic
-proof: it replaces grok with a controllable fake that performs the worst things a
-model could do — edit/delete/create-under a protected path, hang, OOM the box
-(tested against **both** the cgroup and the watchdog), flood output, crash, emit
-garbage — and asserts the harness returns the correct verdict and leaves every
-protected path byte-identical, every time. The **live** suite confirms the things
-only a real grok exercises: that Landlock actually blocks out-of-workspace writes,
-the Morty persona, and end-to-end wiring.
+The **hermetic** suite (`tests/fuzz.py` + `tests/mock_grok` + `tests/mock_claude`)
+is the deterministic proof: it replaces the executor with a controllable fake that
+performs the worst things a model could do — edit/delete/create-under a protected
+path, hang, OOM the box (tested against **both** the cgroup and the watchdog),
+flood output, crash, emit garbage — and asserts the harness returns the correct
+verdict and leaves every protected path byte-identical, every time. Four scenarios
+cover the **Opus fallback**: that grok-missing and grok-out-of-usage both fall back
+to Claude, that the fallback executor is caged exactly like grok, and that
+`--no-fallback` refuses rather than substituting silently. The **live** suite
+confirms what only a real model exercises: Landlock blocking out-of-workspace
+writes, the Morty persona, and end-to-end wiring (including a live fallback run).

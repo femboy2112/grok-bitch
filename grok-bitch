@@ -46,6 +46,13 @@ from pathlib import Path
 VERSION = "1.0.0"
 SCHEMA = "grok-bitch/v1"
 DEFAULT_MODEL = "grok-build"
+# When grok is missing or out of usage, "Morty" falls back to Claude — Opus at
+# medium effort by default — running through the very same cage (guard+revert,
+# resource caps, verify) and playing the same Morty persona. Only the underlying
+# model changes; the harness's guarantees do not.
+FALLBACK_MODEL = "opus"
+FALLBACK_EFFORT = "medium"
+DEFAULT_FALLBACK_BIN = "claude"
 
 # Printed on EVERY exit / hand-off back to Claude Code (stderr) and embedded in
 # every JSON result. grok is the dumb subordinate; the work is not to be trusted.
@@ -175,6 +182,29 @@ DEFAULT_BASH_DENIES = [
     "Bash(mkfs*)",
     "Bash(dd if=*)",
 ]
+
+# Runtime signatures in grok's OWN output meaning grok is UNAVAILABLE / OUT OF
+# USAGE (an executor problem, not a task error) -> trigger the Claude fallback.
+GROK_UNAVAILABLE_PATTERNS = [
+    "out of usage", "usage limit", "usage cap", "out of credits", "quota",
+    "rate limit", "rate-limit", "too many requests", "429", "insufficient",
+    "credit", "billing", "payment", "subscription", "not entitled",
+    "unauthorized", "401", "403", "forbidden", "invalid api key",
+    "authentication failed", "auth failed", "over capacity", "model not found",
+    "no longer available", "currently unavailable", "service unavailable",
+    "settings fetch failed",
+]
+
+# Tool denies for the Claude fallback executor (claude permission-rule syntax).
+# Tool-level only; guard+revert + resource caps remain the real guarantees.
+CLAUDE_BASH_DENIES = [
+    "Bash(rm:*)", "Bash(sudo:*)", "Bash(git push:*)", "Bash(git reset:*)",
+    "Bash(git clean:*)", "Bash(curl:*)", "Bash(wget:*)", "Bash(dd:*)",
+    "Bash(mkfs:*)", "Bash(chown:*)", "Bash(chmod -R:*)",
+]
+CLAUDE_NEVER_TOOLS = ["Task", "Skill"]    # no subagents; no re-invoking our own skill
+CLAUDE_WEB_TOOLS = ["WebSearch", "WebFetch"]
+CLAUDE_READONLY_TOOLS = "Read,Grep,Glob"
 
 
 # ---------------------------------------------------------------------------
@@ -799,15 +829,110 @@ def build_grok_cmd(args, profile, guard_roots, dir_: Path):
     return cmd
 
 
-def run_grok(cmd, dir_, timeout_s, limits: Limits, run_dir: Path):
-    """Run grok under resource caps + wall-clock timeout. Returns (state, payload).
+def looks_unavailable(payload) -> bool:
+    """True if grok's failure looks like 'grok itself is unavailable / out of
+    usage' (vs a task-level error) — the trigger for the Claude fallback."""
+    blob = " ".join(str(payload.get(k, "")) for k in
+                    ("error", "stderr_tail", "stdout_tail")).lower()
+    return any(p in blob for p in GROK_UNAVAILABLE_PATTERNS)
+
+
+def build_claude_cmd(args, profile, guard_roots, dir_: Path):
+    """Fallback executor: Claude (Opus/medium by default) playing Morty, run
+    through the SAME guard+revert+resource cage as grok. There is no OS sandbox
+    here (Claude has no Landlock in this path), so write-confinement leans on
+    guard+revert + tool denies + resource caps — a documented limitation."""
+    rules = build_rules(guard_roots, dir_, profile["web"])
+    if args.rules:
+        rules = rules + " " + args.rules
+    sysprompt = MORTY_PERSONA + "\n\n" + rules
+    cmd = [args.fallback_bin, "-p", args.task,
+           "--model", args.fallback_model,
+           "--effort", args.fallback_effort,
+           "--output-format", "json",
+           "--max-turns", str(args.max_turns),
+           "--append-system-prompt", sysprompt]
+    if profile.get("readonly_tools"):
+        # read-only: default perms + read tools only => cannot write or run shell,
+        # and print mode never hangs on a permission prompt.
+        cmd += ["--permission-mode", "default", "--allowedTools", CLAUDE_READONLY_TOOLS]
+    else:
+        denies = list(CLAUDE_BASH_DENIES) + list(CLAUDE_NEVER_TOOLS)
+        if not profile["web"]:
+            denies += CLAUDE_WEB_TOOLS
+        for r in guard_roots:
+            rp = Path(r).resolve()
+            denies += [f"Edit({rp}/**)", f"Write({rp}/**)",
+                       f"Edit({rp})", f"Write({rp})"]
+        cmd += ["--permission-mode", "bypassPermissions",
+                "--disallowedTools", ",".join(denies)]
+    return cmd
+
+
+def _parse_claude_json(raw):
+    """claude `-p --output-format json` returns a JSON array of events whose final
+    type=="result" element holds the answer. Tolerate a single object and NDJSON
+    (stream-json) too."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        obj = None
+        for line in raw.splitlines():            # tolerate stream-json (NDJSON)
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+        return obj if isinstance(obj, dict) else None
+    if isinstance(data, list):
+        for el in reversed(data):
+            if isinstance(el, dict) and el.get("type") == "result":
+                return el
+        return data[-1] if (data and isinstance(data[-1], dict)) else None
+    return data if isinstance(data, dict) else None
+
+
+def _parse_claude_result(rc, stdout, payload):
+    obj = _parse_claude_json(stdout)
+    if isinstance(obj, dict):
+        sub = obj.get("subtype") or ""
+        is_err = bool(obj.get("is_error")) or (sub and sub != "success")
+        text = obj.get("result")
+        if text is None:
+            text = obj.get("text", "")
+        payload["grok_json"] = {"sessionId": obj.get("session_id"),
+                                "stopReason": sub or obj.get("stop_reason")}
+        payload["text"] = text or ""
+        if is_err:
+            payload["error"] = (text or obj.get("error")
+                                or f"claude fallback error ({sub or 'unknown'})")
+            return "grok_error", payload
+        if rc != 0:
+            return "grok_error", payload
+        return "ok", payload
+    if rc != 0:
+        payload["error"] = "claude fallback exited nonzero with no JSON result"
+        return "grok_error", payload
+    payload["error"] = "claude fallback produced no parseable JSON result on stdout"
+    return "grok_error", payload
+
+
+def run_grok(cmd, dir_, timeout_s, limits: Limits, run_dir: Path, kind="grok"):
+    """Run the executor (grok, or the Claude fallback) under resource caps +
+    wall-clock timeout. Returns (state, payload).
 
     state in {ok, timeout, resource, grok_error, spawn_error}."""
     out_path = run_dir / "grok.stdout"
     err_path = run_dir / "grok.stderr"
     unit = "grok-bitch-grok-" + run_dir.name
+    # grok needs a controlling pty for Landlock to engage; Claude does not.
     state, info = run_limited(cmd, dir_, timeout_s, limits, out_path, err_path, unit,
-                              with_pty=True)
+                              with_pty=(kind == "grok"))
 
     stdout = out_path.read_text(errors="replace") if out_path.exists() else ""
     stderr = err_path.read_text(errors="replace") if err_path.exists() else ""
@@ -820,6 +945,9 @@ def run_grok(cmd, dir_, timeout_s, limits: Limits, run_dir: Path):
             state = "resource"  # output flood is a resource breach
             payload["error"] = "output exceeded cap (flood); killed"
         return state, payload
+
+    if kind == "claude":
+        return _parse_claude_result(info["exit"], stdout, payload)
 
     # state == ok: parse grok JSON
     rc = info["exit"]
@@ -927,7 +1055,30 @@ def cmd_run(args):
     run_dir = new_run_dir()
     guard = Guard(guard_roots, run_dir / "snapshot")
 
-    cmd = build_grok_cmd(args, profile, guard.roots, dir_)
+    # --- choose executor: grok ("Morty"), or the Claude fallback (opus/medium by
+    #     default) when grok is missing / out of usage — same persona, same cage ---
+    fallback_enabled = not args.no_fallback
+    grok_path = shutil.which(args.grok_bin) or (
+        args.grok_bin if Path(args.grok_bin).exists() else None)
+    claude_path = shutil.which(args.fallback_bin) or (
+        args.fallback_bin if Path(args.fallback_bin).exists() else None)
+    executor = "grok"
+    fallback_reason = None
+    if grok_path is None:
+        if fallback_enabled and claude_path is not None:
+            executor = "claude"
+            fallback_reason = f"grok binary not found ({args.grok_bin})"
+        elif not fallback_enabled:
+            return finish(EXIT_PREFLIGHT,
+                          {"error": f"grok not found ({args.grok_bin}); fallback "
+                                    "disabled (--no-fallback)"}, args)
+        else:
+            return finish(EXIT_PREFLIGHT,
+                          {"error": f"grok not found ({args.grok_bin}) and fallback "
+                                    f"'{args.fallback_bin}' not found either"}, args)
+
+    cmd = (build_claude_cmd(args, profile, guard.roots, dir_) if executor == "claude"
+           else build_grok_cmd(args, profile, guard.roots, dir_))
 
     result = {
         "schema": SCHEMA,
@@ -948,7 +1099,12 @@ def cmd_run(args):
                             else ("watchdog" if limits.enabled else "DISABLED")),
         },
         "grok_cmd": cmd,
+        "executor": ("claude-fallback" if executor == "claude" else "grok"),
     }
+    if executor == "claude":
+        result["fallback"] = {"used": True, "reason": fallback_reason,
+                              "model": args.fallback_model,
+                              "effort": args.fallback_effort, "bin": args.fallback_bin}
 
     if args.dry_run:
         result["verdict"] = "dry_run"
@@ -961,8 +1117,33 @@ def cmd_run(args):
     # --- snapshot protected paths BEFORE running ---
     guard.snapshot()
 
-    # --- run grok (always followed by guard detection, even on error/timeout) ---
-    state, gpayload = run_grok(cmd, dir_, args.timeout, limits, run_dir)
+    # --- run the executor (always followed by guard detection, even on error) ---
+    state, gpayload = run_grok(cmd, dir_, args.timeout, limits, run_dir,
+                               kind=("claude" if executor == "claude" else "grok"))
+
+    # runtime fallback: grok ran but is out of usage / unavailable -> retry on Claude
+    if (executor == "grok" and state in ("grok_error", "spawn_error")
+            and fallback_enabled and claude_path is not None
+            and looks_unavailable(gpayload)):
+        fallback_reason = ("grok unavailable / out of usage: "
+                           + (gpayload.get("error") or "")[:200])
+        eprint(f"grok-bitch: grok unavailable; falling back to "
+               f"{args.fallback_model}/{args.fallback_effort} for Morty.")
+        # undo any protected-path damage from the aborted grok attempt first
+        pre = guard.detect()
+        if pre and not args.no_revert:
+            guard.revert(pre)
+        executor = "claude"
+        cmd = build_claude_cmd(args, profile, guard.roots, dir_)
+        result["executor"] = "claude-fallback"
+        result["grok_cmd"] = cmd
+        result["fallback"] = {"used": True, "reason": fallback_reason,
+                              "model": args.fallback_model,
+                              "effort": args.fallback_effort, "bin": args.fallback_bin}
+        state, gpayload = run_grok(cmd, dir_, args.timeout, limits, run_dir, kind="claude")
+
+    gpayload["executor"] = result["executor"]
+    gpayload["model"] = (args.fallback_model if executor == "claude" else args.model)
     result["grok"] = gpayload
 
     violations = guard.detect()
@@ -1051,6 +1232,10 @@ def _human_summary(r):
             "grok_error": "ERROR", "timeout": "TIMEOUT", "preflight_error": "PREFLIGHT",
             "resource_exceeded": "OOM-KILLED", "dry_run": "DRY-RUN"}.get(v, "?")
     eprint(f"grok-bitch [{icon}] verdict={v} exit={r.get('exit_code')}")
+    if r.get("executor") == "claude-fallback":
+        fb = r.get("fallback", {})
+        eprint(f"  executor: CLAUDE FALLBACK ({fb.get('model')}/{fb.get('effort')}) "
+               "— grok unavailable, Morty is Claude this run")
     g0 = r.get("grok", {})
     if g0.get("peak_rss_mb") is not None:
         eprint(f"  resource: peak={g0.get('peak_rss_mb')}MB / cap={g0.get('mem_max_mb')}MB "
@@ -1106,7 +1291,15 @@ def cmd_doctor(args):
         except (OSError, subprocess.SubprocessError) as e:
             chk("auth_and_model", False, str(e))
     else:
-        chk("auth_and_model", None, "skipped (--offline)")
+        chk("auth_and_model", None,
+            "skipped (--offline)" if grok else "skipped (grok not found)")
+
+    # Claude fallback executor: Morty becomes opus/medium when grok is unavailable.
+    fb = shutil.which(args.fallback_bin) or (
+        args.fallback_bin if Path(args.fallback_bin).exists() else None)
+    chk("fallback_executor", fb is not None,
+        (f"{fb}  (Morty -> {FALLBACK_MODEL}/{FALLBACK_EFFORT} when grok is unavailable)"
+         if fb else f"not found: {args.fallback_bin}  (no grok fallback)"))
 
     # landlock / sandbox support: kernel version
     sandbox_ok = False
@@ -1143,11 +1336,17 @@ def cmd_doctor(args):
     except OSError as e:
         chk("run_dir_writable", False, f"{rr}: {e}")
 
-    blocking = [c for c in health["checks"]
-                if c["ok"] is False and c["name"] in
-                ("grok_binary", "auth_and_model", "run_dir_writable")]
-    health["ok"] = len(blocking) == 0
+    def _okv(n):
+        return next((c["ok"] for c in health["checks"] if c["name"] == n), None)
+    run_ok = _okv("run_dir_writable") is True
+    grok_ok = (_okv("grok_binary") is True) and (_okv("auth_and_model") in (True, None))
+    fb_ok = fb is not None
+    # Ready if the run dir is writable AND we have *some* working executor —
+    # grok, or the Claude fallback when grok is missing/unauthed.
+    health["ok"] = run_ok and (grok_ok or fb_ok)
     health["ready"] = health["ok"] and sandbox_ok
+    health["executor_plan"] = ("grok" if grok_ok else
+                               ("claude-fallback" if fb_ok else "none"))
     health["disclaimer"] = DISCLAIMER
     print(json.dumps(health, indent=2))
     if not args.quiet:
@@ -1158,6 +1357,9 @@ def cmd_doctor(args):
                + ("" if sandbox_ok else "  (WARNING: OS sandbox unavailable; "
                   "guard+revert still protects in-tree paths, but out-of-tree "
                   "writes are NOT kernel-blocked)"))
+        eprint(f"  executor plan: {health['executor_plan']}"
+               + (f"  (grok unavailable -> {FALLBACK_MODEL}/{FALLBACK_EFFORT})"
+                  if health["executor_plan"] == "claude-fallback" else ""))
     return EXIT_SUCCESS if health["ok"] else EXIT_PREFLIGHT
 
 
@@ -1240,12 +1442,25 @@ def build_parser():
     r.add_argument("--quiet", action="store_true", help="Suppress the human summary on stderr.")
     r.add_argument("--grok-bin", default=os.environ.get("GROK_BITCH_GROK_BIN", "grok"),
                    help="grok binary path (or GROK_BITCH_GROK_BIN).")
+    r.add_argument("--fallback-model", default=FALLBACK_MODEL,
+                   help=f"Model for the Claude fallback when grok is unavailable "
+                        f"(default: {FALLBACK_MODEL}).")
+    r.add_argument("--fallback-effort", default=FALLBACK_EFFORT,
+                   choices=["low", "medium", "high", "xhigh", "max"],
+                   help=f"Effort for the Claude fallback (default: {FALLBACK_EFFORT}).")
+    r.add_argument("--fallback-bin",
+                   default=os.environ.get("GROK_BITCH_CLAUDE_BIN", DEFAULT_FALLBACK_BIN),
+                   help="Claude binary for the fallback executor (or GROK_BITCH_CLAUDE_BIN).")
+    r.add_argument("--no-fallback", action="store_true",
+                   help="Disable the Claude opus/medium fallback; fail if grok is unavailable.")
     r.set_defaults(func=cmd_run)
 
     d = sub.add_parser("doctor", help="Check the environment is ready.")
     d.add_argument("--offline", action="store_true", help="Skip the auth/model network check.")
     d.add_argument("--quiet", action="store_true")
     d.add_argument("--grok-bin", default=os.environ.get("GROK_BITCH_GROK_BIN", "grok"))
+    d.add_argument("--fallback-bin",
+                   default=os.environ.get("GROK_BITCH_CLAUDE_BIN", DEFAULT_FALLBACK_BIN))
     d.set_defaults(func=cmd_doctor)
 
     pr = sub.add_parser("profiles", help="List safety profiles.")
