@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "grok-bitch",
+  "description": "Self-hosted marketplace for the grok-bitch plugin — hand grunt work to a caged grok from Claude Code.",
+  "owner": {
+    "name": "femboy2112",
+    "email": "femboy2112@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "grok-bitch",
+      "description": "Offload mechanical, well-specified, verifiable grunt work to a caged grok (grok-build) and get back a structured JSON verdict. OS sandbox + resource caps (no OOM) + guard/revert on protected paths + verify gate. Includes an auto-discovered skill, a Rick subagent (it bosses grok/Morty around in an isolated context), and the grok-bitch CLI on PATH.",
+      "author": {
+        "name": "femboy2112"
+      },
+      "category": "development",
+      "source": "./",
+      "homepage": "https://github.com/femboy2112/grok-bitch"
+    }
+  ]
+}

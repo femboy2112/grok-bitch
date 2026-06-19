@@ -1,0 +1,12 @@
+{
+  "name": "grok-bitch",
+  "version": "1.0.0",
+  "description": "Offload mechanical, well-specified, verifiable grunt work to grok (grok-build) from Claude Code. grok runs caged: an OS sandbox, hard resource caps so it can't OOM the box, byte-snapshot guard+revert on protected paths, and a verify gate — and hands back a structured JSON verdict. Claude keeps the rigor; grok does the bitch work. Ships a skill (so Claude reaches for it automatically), a Rick subagent that bosses grok (Morty) around in an isolated context and returns a clean verdict, and the grok-bitch CLI on PATH.",
+  "author": {
+    "name": "femboy2112",
+    "email": "femboy2112@gmail.com"
+  },
+  "homepage": "https://github.com/femboy2112/grok-bitch",
+  "repository": "https://github.com/femboy2112/grok-bitch.git",
+  "keywords": ["grok", "delegation", "sandbox", "subagent", "grunt-work"]
+}

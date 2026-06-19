@@ -56,6 +56,39 @@ enforcer exists, git is present, and the run dir is writable.
 
 ---
 
+## Use it as a Claude Code plugin (recommended)
+
+This repo *is* a Claude Code plugin **and** its own marketplace, so Claude reaches
+for grok-bitch automatically when grunt work shows up — no need to remember it.
+
+```bash
+claude plugin marketplace add femboy2112/grok-bitch   # or a local path / git URL
+claude plugin install grok-bitch@grok-bitch
+```
+
+What the plugin ships:
+
+- **A Skill** (`grok-bitch`) — its description sits in Claude's context, so Claude
+  invokes it on its own for mechanical/verifiable work; also runnable as
+  `/grok-bitch`. It pre-approves `Bash(grok-bitch:*)` so the CLI runs without a
+  permission prompt.
+- **A subagent, `rick`** — **Rick** is the 300-IQ handler who drives grok
+  (**Morty**) in an *isolated context*: he decomposes the goal into bounded steps,
+  cradles Morty through them, adapts to every error by exit code, **never trusts
+  Morty's word** (he independently verifies), and returns only a clean verified
+  verdict — keeping Morty's noisy transcript out of the main conversation.
+- **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
+
+> The Rick → Morty split: the handler that *drives* grok is **Rick**; grok itself,
+> running caged through the harness, is **Morty** (the self-doubting persona). If
+> your Claude Code build doesn't add the plugin's `bin/` to `PATH`, the skill and
+> Rick fall back to `"$CLAUDE_PLUGIN_ROOT/grok-bitch"`; or just symlink it onto
+> `PATH` as in **Install** above.
+
+Inspect it any time with `claude plugin details grok-bitch@grok-bitch`.
+
+---
+
 ## Quickstart
 
 ```bash
