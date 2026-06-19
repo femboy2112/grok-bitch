@@ -1,7 +1,7 @@
 {
   "name": "grok-bitch",
   "version": "1.0.0",
-  "description": "Offload mechanical, well-specified, verifiable grunt work to grok (grok-build) from Claude Code. grok runs caged: an OS sandbox, hard resource caps so it can't OOM the box, byte-snapshot guard+revert on protected paths, and a verify gate — and hands back a structured JSON verdict. Claude keeps the rigor; grok does the bitch work. Ships a skill (so Claude reaches for it automatically), a Rick subagent that bosses grok (Morty) around in an isolated context and returns a clean verdict, a Jerry subagent (fast cheap Claude Haiku for trivial scraps), and the grok-bitch CLI on PATH.",
+  "description": "Offload mechanical, well-specified, verifiable grunt work to grok (grok-build) from Claude Code. grok runs caged: an OS sandbox, hard resource caps so it can't OOM the box, byte-snapshot guard+revert on protected paths, and a verify gate — and hands back a structured JSON verdict. Claude keeps the rigor; grok does the bitch work. Ships a skill (so Claude reaches for it automatically) and a Rick-and-Morty cast of subagents: Rick (Opus, the 300-IQ handler that bosses grok/Morty around in an isolated context and returns a clean verdict), Mr. Meeseeks (Sonnet, summoned to complete one bounded task end-to-end then vanish), and Jerry (fast cheap Claude Haiku for trivial scraps) — plus the grok-bitch CLI on PATH.",
   "author": {
     "name": "femboy2112",
     "email": "femboy2112@gmail.com"

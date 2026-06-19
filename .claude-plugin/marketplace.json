@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "grok-bitch",
-      "description": "Offload mechanical, well-specified, verifiable grunt work to a caged grok (grok-build) and get back a structured JSON verdict. OS sandbox + resource caps (no OOM) + guard/revert on protected paths + verify gate. Includes an auto-discovered skill, a Rick subagent (it bosses grok/Morty around in an isolated context), a Jerry subagent (fast cheap Claude Haiku for trivial scraps), and the grok-bitch CLI on PATH.",
+      "description": "Offload mechanical, well-specified, verifiable grunt work to a caged grok (grok-build) and get back a structured JSON verdict. OS sandbox + resource caps (no OOM) + guard/revert on protected paths + verify gate. Includes an auto-discovered skill and a Rick-and-Morty cast of subagents — Rick (Opus handler that bosses grok/Morty around in an isolated context), Mr. Meeseeks (Sonnet, completes one bounded task then vanishes), and Jerry (fast cheap Claude Haiku for trivial scraps) — plus the grok-bitch CLI on PATH.",
       "author": {
         "name": "femboy2112"
       },

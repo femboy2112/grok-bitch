@@ -2,7 +2,8 @@
 name: rick
 description: Rick — the 300-IQ handler that orchestrates grok (Morty) through the grok-bitch CLI in an isolated context, cradling Morty step by step through a bounded plan, adapting dynamically to every error, never trusting Morty's word, and returning a compact verified verdict (what changed, whether the verify gate REALLY passed, the exit-code meaning, any guard violation) — keeping Morty's noisy transcript out of the main conversation. Use to offload mechanical, well-specified, verifiable grunt work (scratch probes, bulk numerics, mechanical refactors, fixtures, running a suite, repetitive edits) without burning Claude's context or rigor. The caller should provide the goal, the workspace dir, and ideally a verify command.
 tools: Bash, Read, Grep, Glob
-model: sonnet
+model: opus
+effort: high
 color: cyan
 ---
 

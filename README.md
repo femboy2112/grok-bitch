@@ -77,6 +77,11 @@ What the plugin ships:
   cradles Morty through them, adapts to every error by exit code, **never trusts
   Morty's word** (he independently verifies), and returns only a clean verified
   verdict — keeping Morty's noisy transcript out of the main conversation.
+- **A subagent, `mr-meeseeks`** — **Mr. Meeseeks** (Sonnet) is summoned to
+  complete **one** concrete, self-contained task end-to-end: it does whatever it
+  takes (within the rails), verifies it, reports, and vanishes. It will **not**
+  spawn more Meeseeks. For a well-scoped job that needs a capable doer but not
+  Rick's full orchestration.
 - **A subagent, `jerry`** — **Jerry** is the fast, cheap, low-stakes helper
   (Claude Haiku on its fastest effort). Toss him the trivial scraps that aren't
   worth Rick's orchestration or grok's cage — a typo, a rename, a one-line lookup,
@@ -84,9 +89,10 @@ What the plugin ships:
   than it looked back up the chain.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
-> The cast: the handler that *drives* grok is **Rick** (smart, sonnet); grok
-> itself, running caged through the harness, is **Morty** (the self-doubting
-> persona); and **Jerry** is the fast, cheap Claude-Haiku helper for trivial
+> The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
+> *drives* grok; grok itself, running caged through the harness, is **Morty** (the
+> self-doubting persona); **Mr. Meeseeks** (Sonnet) is summoned for a single
+> bounded task; and **Jerry** (Claude Haiku, fastest effort) takes the trivial
 > scraps. The hierarchy is exactly what you'd expect. If
 > your Claude Code build doesn't add the plugin's `bin/` to `PATH`, the skill and
 > Rick fall back to `"$CLAUDE_PLUGIN_ROOT/grok-bitch"`; or just symlink it onto
@@ -231,8 +237,8 @@ merge messages, code-review/issue comments, and changelog/bugfix notes. The voic
 never touches executable or machine-parsed substance: code logic, identifiers,
 values, diffs, JSON/YAML, and commit tokens (trailers like `Co-Authored-By:`,
 issue refs like `Fixes #123`, prefixes like `fix:`) all stay exactly correct.
-The **Rick** and **Jerry** subagents do the same in *their* voices for anything
-they author.
+The **Rick**, **Mr. Meeseeks**, and **Jerry** subagents do the same in *their*
+voices for anything they author.
 
 ```python
 # aw geez, I-I think this just adds a and b together and gives back the result,
