@@ -87,7 +87,11 @@ What the plugin ships:
   (**Morty**) in an *isolated context*: he decomposes the goal into bounded steps,
   cradles Morty through them, adapts to every error by exit code, **never trusts
   Morty's word** (he independently verifies), and returns only a clean verified
-  verdict — keeping Morty's noisy transcript out of the main conversation.
+  verdict — keeping Morty's noisy transcript out of the main conversation. Rick
+  also has a **`PushNotification` intercom**: he fires short, Rick-voiced
+  milestone pings (kickoff, each step Morty lands, any nonzero exit, done) that
+  quote what Morty is actually doing — so you can walk away and still follow
+  along on your terminal/phone. Tell him to keep quiet and he mutes it.
 - **A subagent, `mr-meeseeks`** — **Mr. Meeseeks** (Sonnet) is summoned to
   complete **one** concrete, self-contained task end-to-end: it does whatever it
   takes (within the rails), verifies it, reports, and vanishes. It will **not**
