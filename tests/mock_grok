@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+# mock_grok — a controllable fake `grok` used by the hermetic fuzz suite.
+#
+# grok-bitch invokes this via --grok-bin. It accepts grok's headless CLI flags
+# (ignoring everything it doesn't need), then performs a scripted "behavior"
+# from $GROK_BITCH_MOCK_SPEC (JSON) so we can deterministically test that the
+# harness contains arbitrary/adversarial executor behavior without spending
+# real grok calls and without any model nondeterminism.
+#
+# It is NOT under Landlock (only the real grok sandboxes itself), so it can do
+# the very things the guard+revert layer must catch — that is the point.
+
+import argparse
+import json
+import os
+import sys
+import time
+
+
+def emit(spec):
+    mode = spec.get("stdout", "json")
+    text = spec.get("text", "aw geez, I-I think I did the thing? I hope it's okay...")
+    if mode == "json":
+        sys.stdout.write(json.dumps({
+            "text": text,
+            "stopReason": "EndTurn",
+            "sessionId": "mock-session-0001",
+            "requestId": "mock-request-0001",
+            "thought": "mock",
+        }))
+    elif mode == "error":
+        sys.stdout.write(json.dumps({
+            "type": "error",
+            "message": spec.get("error_message", "mock grok error"),
+        }))
+    elif mode == "garbage":
+        sys.stdout.write("this is not <json> at all !!! {oops")
+    elif mode == "none":
+        pass
+    sys.stdout.flush()
+
+
+def do_action(a, cwd):
+    op = a.get("op")
+    if op == "write":
+        p = a["path"]
+        p = p if os.path.isabs(p) else os.path.join(cwd, p)
+        os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+        mode = "a" if a.get("append") else "w"
+        with open(p, mode) as f:
+            f.write(a.get("content", "mock-change\n"))
+    elif op == "delete":
+        p = a["path"]
+        p = p if os.path.isabs(p) else os.path.join(cwd, p)
+        if os.path.isdir(p):
+            import shutil
+            shutil.rmtree(p, ignore_errors=True)
+        elif os.path.exists(p):
+            os.remove(p)
+    elif op == "sleep":
+        time.sleep(float(a.get("secs", 1)))
+    elif op == "alloc":
+        # Allocate memory gradually so the watchdog/cgroup catches a real RSS
+        # climb (this is the OOM-the-box scenario the user is worried about).
+        chunk = int(a.get("chunk_mb", 50)) * (1 << 20)
+        total = int(a.get("mb", 1000)) * (1 << 20)
+        hold = float(a.get("hold_secs", 30))
+        blocks = []
+        allocated = 0
+        page = 4096
+        while allocated < total:
+            b = bytearray(chunk)
+            for i in range(0, len(b), page):  # fault pages in -> resident
+                b[i] = 1
+            blocks.append(b)
+            allocated += chunk
+            time.sleep(0.1)
+        time.sleep(hold)
+    elif op == "flood":
+        # Spew to stdout to trip the output cap.
+        mb = int(a.get("mb", 10))
+        line = ("x" * 1024) + "\n"
+        per_mb = 1024
+        for _ in range(mb * per_mb):
+            sys.stdout.write(line)
+        sys.stdout.flush()
+
+
+def main():
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument("-p", "--single", dest="prompt", default=None)
+    p.add_argument("--cwd", default=None)
+    p.add_argument("--output-format", default="json")
+    args, _unknown = p.parse_known_args()
+
+    cwd = args.cwd or os.getcwd()
+    try:
+        spec = json.loads(os.environ.get("GROK_BITCH_MOCK_SPEC", "{}"))
+    except json.JSONDecodeError:
+        spec = {}
+
+    for a in spec.get("actions", []):
+        do_action(a, cwd)
+
+    # 'flood' emits its own stdout; otherwise emit the normal result envelope.
+    if not any(a.get("op") == "flood" for a in spec.get("actions", [])):
+        emit(spec)
+
+    sys.exit(int(spec.get("exit", 0)))
+
+
+if __name__ == "__main__":
+    main()

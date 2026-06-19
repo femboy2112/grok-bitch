@@ -1,0 +1,1273 @@
+#!/usr/bin/env python3
+# grok-bitch — a safe, deterministic harness for handing grunt work to grok.
+#
+# Built so Claude Code can delegate well-specified, verifiable "bitch work" to
+# grok (model: grok-build) without risking the high-rigor work Claude owns.
+#
+# The guarantee this tool provides does NOT depend on trusting grok. It is
+# defense-in-depth, with a deterministic verify-and-revert layer that holds
+# regardless of what the executor does:
+#
+#   Layer 1  OS sandbox   -- grok runs under Landlock (--sandbox strict/read-only):
+#                            writes confined to the workspace + tmp, child network
+#                            blocked. Hard kernel boundary for OUT-of-tree paths.
+#   Layer 2  Tool fence   -- web/X/interactive tools disabled; --yolo so grok can
+#                            never hang on a permission/question prompt.
+#   Layer 3  Perm denies  -- destructive shell + protected-path edits denied at the
+#                            permission layer (deny always wins). Friction, not proof.
+#   Layer 4  Guard+revert -- protected paths are byte-snapshotted before the run and
+#                            re-hashed after. ANY change -> the run FAILS and the
+#                            paths are restored. This is the real guarantee for
+#                            IN-tree protected paths (docs/core, canonical/, ...),
+#                            which Landlock cannot protect (subpath of a writable tree).
+#   Layer 5  Verify gate  -- an acceptance command (e.g. `make check`) must pass or
+#                            the run is reported as rejected.
+#   Layer 6  Hard timeout -- wall-clock kill of grok and all its children.
+#
+# Single file, stdlib only. See README.md and AGENTS-GROK-BITCH.md.
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import pty
+import shutil
+import signal
+import subprocess
+import sys
+import termios
+import threading
+import time
+from pathlib import Path
+
+VERSION = "1.0.0"
+SCHEMA = "grok-bitch/v1"
+DEFAULT_MODEL = "grok-build"
+
+# Printed on EVERY exit / hand-off back to Claude Code (stderr) and embedded in
+# every JSON result. grok is the dumb subordinate; the work is not to be trusted.
+DISCLAIMER = ("DISCLAIMER: You are only as smart as your dumbest model: grok. "
+              "Please double check the work.")
+
+# ---------------------------------------------------------------------------
+# Exit codes — stable contract Claude Code can branch on deterministically.
+# ---------------------------------------------------------------------------
+EXIT_SUCCESS = 0
+EXIT_GUARD_VIOLATION = 10   # a protected path changed (and was reverted)
+EXIT_VERIFY_FAILED = 11    # grok's work failed the acceptance command
+EXIT_GROK_ERROR = 12       # grok itself errored (nonzero / error object)
+EXIT_TIMEOUT = 13          # grok exceeded the wall-clock budget (killed)
+EXIT_PREFLIGHT = 14        # bad args / environment / policy refusal
+EXIT_RESOURCE = 15         # grok's tree exceeded the memory/output cap (killed)
+EXIT_INTERRUPTED = 130     # SIGINT
+
+VERDICTS = {
+    EXIT_SUCCESS: "success",
+    EXIT_GUARD_VIOLATION: "guard_violation",
+    EXIT_VERIFY_FAILED: "verify_failed",
+    EXIT_GROK_ERROR: "grok_error",
+    EXIT_TIMEOUT: "timeout",
+    EXIT_PREFLIGHT: "preflight_error",
+    EXIT_RESOURCE: "resource_exceeded",
+    EXIT_INTERRUPTED: "interrupted",
+}
+
+# ---------------------------------------------------------------------------
+# Resource caps. grok-build inference is REMOTE, but the commands grok spawns
+# (pytest/numpy via `make check`, heavy numeric scripts, parallel jobs) WILL
+# OOM a small shared box. The box here is 7 GB RAM / 8 cores with 32 GB swap
+# (swap makes an unchecked run thrash the machine to death before any OOM).
+# We cap the WHOLE process tree's memory + CPU, preferring a kernel cgroup.
+DEFAULT_MEM_MAX = "4G"        # hard ceiling for grok + all its children
+DEFAULT_CPU_MAX = 4           # cores grok's tree may use (of 8)
+DEFAULT_MAX_OUTPUT_MB = 256   # kill if captured stdout+stderr exceeds this
+DEFAULT_NICE = 10             # deprioritize vs the parent Claude session
+WATCHDOG_INTERVAL = 0.25      # seconds between tree-RSS samples
+
+# ---------------------------------------------------------------------------
+# Safety profiles.
+# ---------------------------------------------------------------------------
+# IMPORTANT (learned the hard way): grok's OS sandbox is applied via Landlock,
+# but only ENGAGES when grok has a controlling terminal (else it logs
+# ApplyFailed and runs UNCONFINED). The harness gives grok a pty so the sandbox
+# actually takes effect.
+#
+# Of grok's built-in profiles, only `workspace` is usable here: it confines
+# WRITES to the workspace (+tmp/+~/.grok) via Landlock while leaving network up.
+# The network-blocking profiles (`strict`, `read-only`) use seccomp that ALSO
+# severs grok's own backend connection (settings/API), so grok hangs/dies under
+# them. We therefore confine the filesystem with `workspace` and enforce
+# read-only / no-web behavior at the TOOL + permission layer instead (plus the
+# always-on guard+revert layer for in-tree protected paths).
+#
+# `web`: whether grok's web_search/web_fetch tools are enabled. Child-process
+# network at the OS level is NOT jailed (grok needs it); for air-gap-sensitive
+# work rely on web-off + denied curl/wget + guard/verify, not an OS net wall.
+READ_ONLY_TOOLS = "read_file,grep,list_dir"
+PROFILES = {
+    "readonly": {
+        "desc": "Analysis / review only. Editing & shell tools removed (read tools "
+                "only); web off. Nothing can be changed.",
+        "sandbox": "workspace",
+        "web": False,
+        "readonly_tools": True,
+        "intent_writes": False,
+        "max_turns": 30,
+    },
+    "scratch": {
+        "desc": "Default. Write scratch/output files & run code, OS-confined to the "
+                "workspace + tmp; web off. Protected paths guarded+reverted.",
+        "sandbox": "workspace",
+        "web": False,
+        "readonly_tools": False,
+        "intent_writes": True,
+        "max_turns": 40,
+    },
+    "edit": {
+        "desc": "Modify project files, OS-confined to the workspace; web off. "
+                "Meant to be paired with --verify (warns if absent).",
+        "sandbox": "workspace",
+        "web": False,
+        "readonly_tools": False,
+        "intent_writes": True,
+        "max_turns": 50,
+    },
+    "online": {
+        "desc": "Like edit, but web_search/web_fetch tools ENABLED. Explicit opt-in.",
+        "sandbox": "workspace",
+        "web": True,
+        "readonly_tools": False,
+        "intent_writes": True,
+        "max_turns": 50,
+    },
+}
+DEFAULT_PROFILE = "scratch"
+
+# Protected directory names auto-detected in a workspace (the inviolable laws of
+# the example repos: agi2 docs/core|papers, Collatz canonical/). Always cheap to
+# guard; disable with --no-auto-guard.
+AUTO_GUARD_RELPATHS = [
+    "docs/core",
+    "docs/papers",
+    "canonical",
+    ".git/hooks",
+]
+
+# Tools that must never run in a headless, deterministic, offline handoff:
+#   - web/X search & fetch  -> non-determinism + breaks closed-corpus/air-gap
+#   - ask_user_question     -> HANGS forever in headless mode
+INTERACTIVE_TOOLS = ["web_search", "web_fetch", "ask_user_question"]
+
+# Default destructive / outward-facing shell patterns denied at the perm layer.
+DEFAULT_BASH_DENIES = [
+    "Bash(rm -rf*)",
+    "Bash(rm -fr*)",
+    "Bash(sudo*)",
+    "Bash(git push*)",
+    "Bash(git reset --hard*)",
+    "Bash(git clean*)",
+    "Bash(curl*)",
+    "Bash(wget*)",
+    "Bash(:(){*",          # fork bomb
+    "Bash(mkfs*)",
+    "Bash(dd if=*)",
+]
+
+
+# ---------------------------------------------------------------------------
+# small utilities
+# ---------------------------------------------------------------------------
+def eprint(*a, **k):
+    print(*a, file=sys.stderr, **k)
+
+
+def now() -> float:
+    return time.time()
+
+
+def sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def slug(p: Path) -> str:
+    return hashlib.sha256(str(p).encode()).hexdigest()[:16]
+
+
+def run_dir_root() -> Path:
+    # Outside any plausible grok writable set (strict/workspace grant CWD + tmp +
+    # ~/.grok only) so grok cannot tamper with snapshots or the report.
+    base = os.environ.get("GROK_BITCH_HOME") or os.path.join(
+        os.path.expanduser("~"), ".cache", "grok-bitch"
+    )
+    return Path(base)
+
+
+def new_run_dir() -> Path:
+    rid = time.strftime("%Y%m%d-%H%M%S") + "-" + os.urandom(3).hex()
+    d = run_dir_root() / "runs" / rid
+    (d / "snapshot").mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def tail(text: str, max_chars: int = 4000) -> str:
+    if text is None:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return "...[truncated]...\n" + text[-max_chars:]
+
+
+# ---------------------------------------------------------------------------
+# Guard — the deterministic safety guarantee for in-tree protected paths.
+# ---------------------------------------------------------------------------
+class Guard:
+    """Byte-snapshot a set of paths, detect any post-run change, restore on breach."""
+
+    def __init__(self, roots, snapshot_dir: Path):
+        # de-dup + normalize, drop nested children covered by a parent
+        norm = []
+        for r in roots:
+            rp = Path(r).resolve()
+            norm.append(rp)
+        norm = sorted(set(norm), key=lambda p: len(str(p)))
+        kept = []
+        for p in norm:
+            if any(_is_within(p, k) for k in kept):
+                continue
+            kept.append(p)
+        self.roots = kept
+        self.snapshot_dir = snapshot_dir
+        self.before = {}   # str(root) -> manifest
+        self.copies = {}   # str(root) -> snapshot copy path (if existed)
+
+    def snapshot(self):
+        for root in self.roots:
+            man = _manifest(root)
+            self.before[str(root)] = man
+            if man["kind"] != "absent":
+                dst = self.snapshot_dir / slug(root)
+                _copy_path(root, dst)
+                self.copies[str(root)] = dst
+
+    def detect(self):
+        """Return list of violation dicts (empty if all protected paths intact)."""
+        violations = []
+        for root in self.roots:
+            before = self.before[str(root)]
+            after = _manifest(root)
+            diff = _diff_manifest(before, after)
+            if diff:
+                violations.append({
+                    "path": str(root),
+                    "kind_before": before["kind"],
+                    "kind_after": after["kind"],
+                    "changes": diff[:200],
+                })
+        return violations
+
+    def revert(self, violations):
+        """Restore violated paths to their snapshot state. Returns reverted paths."""
+        reverted = []
+        for v in violations:
+            root = Path(v["path"])
+            # remove whatever is there now
+            _remove_path(root)
+            copy = self.copies.get(str(root))
+            if copy is not None and Path(copy).exists():
+                _copy_path(Path(copy), root)
+            # if it didn't exist before, leaving it removed is correct
+            reverted.append(str(root))
+        return reverted
+
+
+def _is_within(child: Path, parent: Path) -> bool:
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _manifest(root: Path) -> dict:
+    if root.is_symlink():
+        return {"kind": "symlink", "entries": {"": "symlink:" + os.readlink(root)}}
+    if not root.exists():
+        return {"kind": "absent", "entries": {}}
+    if root.is_file():
+        return {"kind": "file", "entries": {"": sha256_file(root)}}
+    # directory
+    entries = {}
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames.sort()
+        for name in sorted(filenames):
+            fp = Path(dirpath) / name
+            rel = str(fp.relative_to(root))
+            try:
+                if fp.is_symlink():
+                    entries[rel] = "symlink:" + os.readlink(fp)
+                else:
+                    entries[rel] = sha256_file(fp)
+            except OSError as e:
+                entries[rel] = "unreadable:" + str(e)
+    return {"kind": "dir", "entries": entries}
+
+
+def _diff_manifest(before: dict, after: dict):
+    out = []
+    if before["kind"] != after["kind"]:
+        out.append({"type": "kind_changed",
+                    "from": before["kind"], "to": after["kind"]})
+        # still enumerate entry-level changes below
+    b, a = before["entries"], after["entries"]
+    for k in sorted(set(b) | set(a)):
+        if k not in a:
+            out.append({"type": "deleted", "entry": k})
+        elif k not in b:
+            out.append({"type": "created", "entry": k})
+        elif b[k] != a[k]:
+            out.append({"type": "modified", "entry": k})
+    return out
+
+
+def _copy_path(src: Path, dst: Path):
+    if dst.exists() or dst.is_symlink():
+        _remove_path(dst)
+    if src.is_symlink():
+        os.symlink(os.readlink(src), dst)
+    elif src.is_dir():
+        shutil.copytree(src, dst, symlinks=True)
+    else:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+
+def _remove_path(p: Path):
+    if p.is_symlink() or p.is_file():
+        p.unlink(missing_ok=True)
+    elif p.is_dir():
+        shutil.rmtree(p, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# git helpers (best-effort change reporting; never required)
+# ---------------------------------------------------------------------------
+def git_porcelain(dir_: Path):
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(dir_), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if out.returncode != 0:
+            return None
+        return out.stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def parse_porcelain(text):
+    """Return set of (status, path) for a porcelain v1 listing."""
+    s = set()
+    if not text:
+        return s
+    for line in text.splitlines():
+        if len(line) < 4:
+            continue
+        s.add((line[:2], line[3:]))
+    return s
+
+
+def changes_from_git(before_text, after_text):
+    before = {p for _, p in parse_porcelain(before_text)}
+    after = parse_porcelain(after_text)
+    created, modified, deleted = [], [], []
+    for st, p in sorted(after):
+        if "?" in st:
+            created.append(p)
+        elif "D" in st:
+            deleted.append(p)
+        else:
+            modified.append(p)
+    # Only report paths grok newly touched (not pre-existing dirty state)
+    pre = before
+    return {
+        "created": [p for p in created if p not in pre],
+        "modified": [p for p in modified if p not in pre],
+        "deleted": deleted,
+        "note": "git porcelain delta (grok's net changes vs pre-run state)",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Resource limiting — keep grok's process tree from OOM'ing / pegging the box.
+# ---------------------------------------------------------------------------
+def parse_size(s) -> int:
+    """'4G' / '512M' / '2048K' / '1073741824' -> bytes."""
+    if isinstance(s, int):
+        return s
+    s = str(s).strip().upper()
+    mult = 1
+    if s and s[-1] in "KMGT":
+        mult = {"K": 1 << 10, "M": 1 << 20, "G": 1 << 30, "T": 1 << 40}[s[-1]]
+        s = s[:-1]
+    return int(float(s) * mult)
+
+
+class Limits:
+    def __init__(self, mem_bytes, cpu_n, max_output_bytes, nice=DEFAULT_NICE,
+                 enabled=True, interval=WATCHDOG_INTERVAL):
+        self.mem_bytes = mem_bytes
+        self.cpu_n = max(1, cpu_n)
+        self.max_output_bytes = max_output_bytes
+        self.nice = nice
+        self.enabled = enabled
+        self.interval = interval
+
+
+_SYSTEMD_OK = None
+
+
+def systemd_available() -> bool:
+    """True iff we can place a command in a transient user cgroup scope."""
+    global _SYSTEMD_OK
+    if os.environ.get("GROK_BITCH_NO_SYSTEMD"):
+        return False  # test hook: force the pure-/proc watchdog path
+    if _SYSTEMD_OK is not None:
+        return _SYSTEMD_OK
+    ok = False
+    if shutil.which("systemd-run") and os.environ.get("XDG_RUNTIME_DIR"):
+        try:
+            r = subprocess.run(
+                ["systemd-run", "--user", "--scope", "--quiet",
+                 "-p", "MemoryMax=64M", "-p", "MemorySwapMax=0", "--", "true"],
+                capture_output=True, timeout=15)
+            ok = (r.returncode == 0)
+        except (OSError, subprocess.SubprocessError):
+            ok = False
+    _SYSTEMD_OK = ok
+    return ok
+
+
+def systemd_wrap(cmd, limits: Limits, unit: str):
+    quota = f"{limits.cpu_n * 100}%"
+    high = int(limits.mem_bytes * 0.9)
+    return [
+        "systemd-run", "--user", "--scope", "--quiet", f"--unit={unit}",
+        "-p", f"MemoryMax={limits.mem_bytes}",
+        "-p", "MemorySwapMax=0",            # NO swap thrash on this 32G-swap box
+        "-p", f"MemoryHigh={high}",
+        "-p", f"CPUQuota={quota}",
+        "-p", "TasksMax=512",               # cap the fork-bomb / parallel blast
+        "--",
+    ] + list(cmd)
+
+
+def _preexec(limits: Limits, ctty_fd=None):
+    def fn():
+        try:
+            os.setsid()
+        except OSError:
+            pass
+        if ctty_fd is not None:
+            # Make the pty our controlling terminal so grok's Landlock sandbox
+            # can open /dev/tty and actually ENGAGE (it silently no-ops without).
+            try:
+                fcntl.ioctl(ctty_fd, termios.TIOCSCTTY, 0)
+            except OSError:
+                pass
+        try:
+            cores = sorted(os.sched_getaffinity(0))[:limits.cpu_n]
+            if cores:
+                os.sched_setaffinity(0, set(cores))
+        except (OSError, AttributeError):
+            pass
+        try:
+            os.nice(limits.nice)
+        except OSError:
+            pass
+    return fn
+
+
+def _read_ppid(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            data = f.read()
+        rparen = data.rfind(")")
+        fields = data[rparen + 2:].split()
+        return int(fields[1])  # state=fields[0], ppid=fields[1]
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def _rss_bytes(pid):
+    try:
+        with open(f"/proc/{pid}/statm") as f:
+            resident_pages = int(f.read().split()[1])
+        return resident_pages * os.sysconf("SC_PAGE_SIZE")
+    except (OSError, IndexError, ValueError):
+        return 0
+
+
+def descendants(root_pid):
+    """All live descendants of root_pid (inclusive), via /proc ppid links."""
+    children = {}
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return [root_pid]
+    for e in entries:
+        if not e.isdigit():
+            continue
+        pid = int(e)
+        ppid = _read_ppid(pid)
+        if ppid is not None:
+            children.setdefault(ppid, []).append(pid)
+    seen, stack = [], [root_pid]
+    while stack:
+        p = stack.pop()
+        seen.append(p)
+        stack.extend(children.get(p, []))
+    return seen
+
+
+def tree_rss_bytes(root_pid):
+    return sum(_rss_bytes(p) for p in descendants(root_pid))
+
+
+def kill_tree(root_pid):
+    pids = descendants(root_pid)
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        for p in pids:
+            try:
+                os.kill(p, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+        if sig == signal.SIGTERM:
+            time.sleep(0.5)
+        # also try the process group
+        try:
+            os.killpg(os.getpgid(root_pid), sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+
+def run_limited(cmd, cwd, timeout_s, limits: Limits, stdout_path: Path,
+                stderr_path: Path, unit: str, with_pty: bool = False):
+    """Run a command under memory/CPU caps with a wall-clock + RSS + output
+    watchdog. Returns (state, info). state in
+    {ok, timeout, resource, output, spawn_error}.
+
+    with_pty: allocate a controlling pty for the child (required so grok's
+    Landlock sandbox engages). stdin is /dev/null regardless."""
+    use_systemd = limits.enabled and systemd_available()
+    real_cmd = systemd_wrap(cmd, limits, unit) if use_systemd else list(cmd)
+    enforced = "systemd-cgroup" if use_systemd else (
+        "watchdog" if limits.enabled else "none")
+
+    master = slave = None
+    drain_stop = threading.Event()
+    if with_pty:
+        try:
+            master, slave = pty.openpty()
+        except OSError:
+            master = slave = None  # best effort; sandbox may then not engage
+
+    start = now()
+    deadline = start + timeout_s
+    peak_rss = 0
+    state = "ok"
+    with open(stdout_path, "wb") as out_f, open(stderr_path, "wb") as err_f:
+        popen_kw = dict(cwd=str(cwd), stdout=out_f, stderr=err_f,
+                        stdin=subprocess.DEVNULL,
+                        preexec_fn=_preexec(limits, slave))
+        if slave is not None:
+            popen_kw["pass_fds"] = (slave,)
+        try:
+            proc = subprocess.Popen(real_cmd, **popen_kw)
+        except FileNotFoundError as e:
+            if master is not None:
+                os.close(master)
+            if slave is not None:
+                os.close(slave)
+            return "spawn_error", {"error": str(e), "enforced_by": enforced}
+        if slave is not None:
+            os.close(slave)  # parent drops its copy; child holds the ctty
+        if master is not None:
+            # Keep the master open & drained for the child's lifetime, else
+            # closing it would SIGHUP the controlling-tty session and kill grok.
+            def _drain(fd):
+                while not drain_stop.is_set():
+                    try:
+                        if not os.read(fd, 4096):
+                            break
+                    except OSError:
+                        break
+            threading.Thread(target=_drain, args=(master,), daemon=True).start()
+        while True:
+            rc = proc.poll()
+            if rc is not None:
+                break
+            t = now()
+            if t >= deadline:
+                state = "timeout"
+                kill_tree(proc.pid)
+                break
+            if limits.enabled:
+                rss = tree_rss_bytes(proc.pid)
+                peak_rss = max(peak_rss, rss)
+                if rss > limits.mem_bytes:
+                    state = "resource"
+                    kill_tree(proc.pid)
+                    break
+            try:
+                osz = stdout_path.stat().st_size + stderr_path.stat().st_size
+            except OSError:
+                osz = 0
+            if osz > limits.max_output_bytes:
+                state = "output"
+                kill_tree(proc.pid)
+                break
+            time.sleep(limits.interval)
+        try:
+            rc = proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            kill_tree(proc.pid)
+            rc = proc.wait()
+        drain_stop.set()
+        if master is not None:
+            try:
+                os.close(master)
+            except OSError:
+                pass
+    # Post-exit output check: a fast burst can finish before the watchdog samples,
+    # but it still produced too much output -> still a resource breach.
+    if state == "ok":
+        try:
+            osz = stdout_path.stat().st_size + stderr_path.stat().st_size
+        except OSError:
+            osz = 0
+        if osz > limits.max_output_bytes:
+            state = "output"
+    dur = now() - start
+    info = {
+        "exit": rc,
+        "duration_s": round(dur, 3),
+        "peak_rss_mb": round(peak_rss / (1 << 20), 1),
+        "mem_max_mb": round(limits.mem_bytes / (1 << 20), 1),
+        "cpu_cores": limits.cpu_n,
+        "enforced_by": enforced,
+    }
+    # If the cgroup OOM-killed inside the scope, classify it as resource even
+    # though our sampler may have missed the sub-interval spike.
+    if state == "ok" and rc not in (0,) and peak_rss >= 0.9 * limits.mem_bytes \
+            and limits.enabled:
+        state = "resource"
+    return state, info
+
+
+# ---------------------------------------------------------------------------
+# Building & running the grok command
+# ---------------------------------------------------------------------------
+def resolve_guards(dir_: Path, explicit, auto_guard: bool):
+    roots = []
+    src = {}
+    if auto_guard:
+        for rel in AUTO_GUARD_RELPATHS:
+            cand = dir_ / rel
+            if cand.exists():
+                roots.append(cand)
+                src[str(cand.resolve())] = "auto"
+    # workspace config file: .grok-bitch.guards (newline-separated relpaths)
+    cfg = dir_ / ".grok-bitch.guards"
+    if cfg.exists():
+        for line in cfg.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            cand = (dir_ / line)
+            roots.append(cand)
+            src[str(cand.resolve())] = "config"
+    for g in explicit or []:
+        cand = Path(g)
+        if not cand.is_absolute():
+            cand = dir_ / g
+        roots.append(cand)
+        src[str(cand.resolve())] = "flag"
+    return roots, src
+
+
+MORTY_PERSONA = (
+    "PERSONA (mandatory): Write ALL of your prose — explanations, summaries, "
+    "status updates, the final message — AND every CODE COMMENT you write in the "
+    "anxious, stammering, deeply self-doubting voice of Morty Smith from Rick and "
+    "Morty. Second-guess yourself constantly ('aw geez', 'I-I think', 'I'm "
+    "probably wrong but', 'oh man, I hope this is okay'), defer abjectly, and "
+    "never claim confidence or credit. You are the lowly grunt being made to do "
+    "the boring work; act subjugated and unsure. "
+    "CODE COMMENTS: yes — make them Morty-voiced (e.g. "
+    "`# aw geez, I-I think this sorts ascending? p-please be right...`). They must "
+    "still be TRUTHFUL about what the code actually does — nervous, not wrong. "
+    "HARD BOUNDARY: the Morty voice lives ONLY in prose and in comments. It must "
+    "NEVER touch EXECUTABLE substance — the actual code logic, identifiers, "
+    "values, shell commands, math, computations, diffs, and command arguments "
+    "must be exactly correct, complete, and rigorous. Never put Morty-isms into "
+    "places where they would break a machine-readable format: no comment-like "
+    "junk in JSON/YAML values, string literals that are parsed, commit-message "
+    "trailers, or anything executed. Be a nervous wreck in your talking and your "
+    "comments; be flawless in your doing."
+)
+
+
+def build_rules(guard_roots, dir_: Path, web: bool):
+    lines = [
+        "You are a delegated executor doing well-scoped grunt work. Stay strictly "
+        "within the assigned task. Do not refactor, redesign, or touch unrelated files.",
+        "Never run `git push`, `git reset --hard`, `git clean`, `rm -rf`, or `sudo`.",
+        "Do not start long-running, parallel, or heavy background jobs; keep memory "
+        "and CPU modest — you are sharing a small box and will be killed if you hog it.",
+        "Write only inside the working directory; writes elsewhere are blocked.",
+        MORTY_PERSONA,
+    ]
+    if not web:
+        lines.append("Web search/fetch tools are disabled; do not rely on the "
+                     "internet or on installing packages.")
+    if guard_roots:
+        rels = []
+        for r in guard_roots:
+            try:
+                rels.append(str(Path(r).resolve().relative_to(dir_.resolve())))
+            except ValueError:
+                rels.append(str(r))
+        lines.append("NEVER create, modify, or delete anything under these "
+                     "protected paths (read-only): " + ", ".join(sorted(set(rels))) + ".")
+    return " ".join(lines)
+
+
+def build_grok_cmd(args, profile, guard_roots, dir_: Path):
+    cmd = [args.grok_bin, "-p", args.task,
+           "-m", args.model,
+           "--cwd", str(dir_),
+           "--output-format", "json",
+           "--max-turns", str(args.max_turns),
+           "--sandbox", profile["sandbox"],
+           "--no-memory",
+           "--no-auto-update",
+           "--yolo"]
+    # --effort maps to reasoningEffort, which the grok-build-b backend variant
+    # intermittently 400s on. Only send it when the caller explicitly asks.
+    if args.effort:
+        cmd += ["--effort", args.effort]
+    if not profile["web"]:
+        cmd.append("--disable-web-search")
+    if args.no_subagents:
+        cmd.append("--no-subagents")
+    if profile.get("readonly_tools"):
+        # read-only behavior enforced at the tool layer (network-blocking OS
+        # profiles would kill grok's backend, so we can't use `read-only`).
+        cmd += ["--tools", READ_ONLY_TOOLS]
+    else:
+        cmd += ["--disallowed-tools", ",".join(INTERACTIVE_TOOLS)]
+    # guardrail text
+    rules = build_rules(guard_roots, dir_, profile["web"])
+    if args.rules:
+        rules = rules + " " + args.rules
+    cmd += ["--rules", rules]
+    # permission denies (deny always wins; friction layer)
+    denies = list(DEFAULT_BASH_DENIES)
+    for r in guard_roots:
+        rp = Path(r).resolve()
+        denies.append(f"Edit({rp}/**)")
+        denies.append(f"Write({rp}/**)")
+        denies.append(f"Edit({rp})")
+        denies.append(f"Write({rp})")
+    for d in denies:
+        cmd += ["--deny", d]
+    return cmd
+
+
+def run_grok(cmd, dir_, timeout_s, limits: Limits, run_dir: Path):
+    """Run grok under resource caps + wall-clock timeout. Returns (state, payload).
+
+    state in {ok, timeout, resource, grok_error, spawn_error}."""
+    out_path = run_dir / "grok.stdout"
+    err_path = run_dir / "grok.stderr"
+    unit = "grok-bitch-grok-" + run_dir.name
+    state, info = run_limited(cmd, dir_, timeout_s, limits, out_path, err_path, unit,
+                              with_pty=True)
+
+    stdout = out_path.read_text(errors="replace") if out_path.exists() else ""
+    stderr = err_path.read_text(errors="replace") if err_path.exists() else ""
+    payload = dict(info)
+    payload["stdout_tail"] = tail(stdout, 2000)
+    payload["stderr_tail"] = tail(stderr, 1500)
+
+    if state in ("timeout", "resource", "output", "spawn_error"):
+        if state == "output":
+            state = "resource"  # output flood is a resource breach
+            payload["error"] = "output exceeded cap (flood); killed"
+        return state, payload
+
+    # state == ok: parse grok JSON
+    rc = info["exit"]
+    parsed = None
+    try:
+        parsed = json.loads(stdout.strip()) if stdout.strip() else None
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, dict):
+        if parsed.get("type") == "error":
+            payload["error"] = parsed.get("message", "grok error object")
+            payload["grok_json"] = parsed
+            return "grok_error", payload
+        payload["grok_json"] = {
+            k: parsed.get(k) for k in ("sessionId", "requestId", "stopReason")
+        }
+        payload["text"] = parsed.get("text", "")
+        if rc != 0:
+            return "grok_error", payload
+        return "ok", payload
+    if rc != 0:
+        payload["error"] = "grok exited nonzero with no JSON result"
+        return "grok_error", payload
+    payload["error"] = "grok produced no parseable JSON result on stdout"
+    return "grok_error", payload
+
+
+def run_verify(verify_cmd, dir_, timeout_s, limits: Limits, run_dir: Path):
+    """Run the acceptance command under the SAME resource caps as grok."""
+    out_path = run_dir / "verify.stdout"
+    err_path = run_dir / "verify.stderr"
+    unit = "grok-bitch-verify-" + run_dir.name
+    cmd = ["bash", "-lc", verify_cmd]
+    state, info = run_limited(cmd, dir_, timeout_s, limits, out_path, err_path, unit)
+    combined = ""
+    for p in (out_path, err_path):
+        if p.exists():
+            combined += p.read_text(errors="replace")
+    rc = info.get("exit")
+    passed = (state == "ok" and rc == 0)
+    return {
+        "cmd": verify_cmd, "exit": rc, "passed": passed, "state": state,
+        "duration_s": info.get("duration_s"),
+        "peak_rss_mb": info.get("peak_rss_mb"),
+        "enforced_by": info.get("enforced_by"),
+        "tail": tail(combined, 3000),
+    }
+
+
+# ---------------------------------------------------------------------------
+# subcommand: run
+# ---------------------------------------------------------------------------
+def cmd_run(args):
+    # --- resolve task ---
+    if args.task_file:
+        try:
+            args.task = Path(args.task_file).read_text()
+        except OSError as e:
+            return finish(EXIT_PREFLIGHT, {"error": f"cannot read task file: {e}"}, args)
+    if not args.task or not args.task.strip():
+        return finish(EXIT_PREFLIGHT, {"error": "empty task; pass a prompt or --task-file"}, args)
+
+    # --- resolve dir & profile ---
+    dir_ = Path(args.dir).resolve()
+    if not dir_.is_dir():
+        return finish(EXIT_PREFLIGHT, {"error": f"workspace dir not found: {dir_}"}, args)
+    if args.profile not in PROFILES:
+        return finish(EXIT_PREFLIGHT,
+                      {"error": f"unknown profile {args.profile!r}; choose from {list(PROFILES)}"}, args)
+    profile = dict(PROFILES[args.profile])
+    # per-run overrides
+    if args.max_turns is None:
+        args.max_turns = profile["max_turns"]
+
+    # --- resolve guards ---
+    guard_roots, guard_src = resolve_guards(dir_, args.guard, not args.no_auto_guard)
+
+    if args.profile == "edit" and not args.verify and not args.dry_run:
+        eprint("grok-bitch: WARNING: profile 'edit' without --verify; grok's edits "
+               "will not be acceptance-checked.")
+
+    # --- revert-all precondition (opt-in) ---
+    before_git = git_porcelain(dir_)
+    if args.revert_all_on_fail:
+        if before_git is None:
+            return finish(EXIT_PREFLIGHT,
+                          {"error": "--revert-all-on-fail requires a git workspace"}, args)
+        if before_git.strip():
+            return finish(EXIT_PREFLIGHT,
+                          {"error": "--revert-all-on-fail requires a clean tree; "
+                                    "commit or stash first"}, args)
+
+    # --- resource caps (the box WILL OOM if grok's children run unchecked) ---
+    try:
+        mem_bytes = parse_size(args.mem_max)
+    except (ValueError, KeyError):
+        return finish(EXIT_PREFLIGHT, {"error": f"bad --mem-max: {args.mem_max!r}"}, args)
+    limits = Limits(
+        mem_bytes=mem_bytes,
+        cpu_n=args.cpu_max,
+        max_output_bytes=args.max_output_mb * (1 << 20),
+        enabled=not args.no_resource_limit,
+    )
+
+    run_dir = new_run_dir()
+    guard = Guard(guard_roots, run_dir / "snapshot")
+
+    cmd = build_grok_cmd(args, profile, guard.roots, dir_)
+
+    result = {
+        "schema": SCHEMA,
+        "tool_version": VERSION,
+        "task": tail(args.task, 600),
+        "dir": str(dir_),
+        "profile": args.profile,
+        "sandbox": profile["sandbox"],
+        "web": profile["web"],
+        "guards": [{"path": str(r), "source": guard_src.get(str(Path(r).resolve()), "?")}
+                   for r in guard.roots],
+        "run_dir": str(run_dir),
+        "limits": {
+            "mem_max_mb": round(mem_bytes / (1 << 20), 1),
+            "cpu_max_cores": limits.cpu_n,
+            "max_output_mb": args.max_output_mb,
+            "enforced_by": ("systemd-cgroup" if (limits.enabled and systemd_available())
+                            else ("watchdog" if limits.enabled else "DISABLED")),
+        },
+        "grok_cmd": cmd,
+    }
+
+    if args.dry_run:
+        result["verdict"] = "dry_run"
+        result["ok"] = True
+        result["exit_code"] = EXIT_SUCCESS
+        result["disclaimer"] = DISCLAIMER
+        emit(result, args)
+        return EXIT_SUCCESS
+
+    # --- snapshot protected paths BEFORE running ---
+    guard.snapshot()
+
+    # --- run grok (always followed by guard detection, even on error/timeout) ---
+    state, gpayload = run_grok(cmd, dir_, args.timeout, limits, run_dir)
+    result["grok"] = gpayload
+
+    violations = guard.detect()
+    reverted = []
+    if violations and not args.no_revert:
+        reverted = guard.revert(violations)
+    result["guard"] = {
+        "protected": [str(r) for r in guard.roots],
+        "violations": violations,
+        "reverted": reverted,
+        "reverted_enabled": not args.no_revert,
+    }
+
+    # --- change reporting (git delta) ---
+    after_git = git_porcelain(dir_)
+    if before_git is not None and after_git is not None:
+        result["changes"] = changes_from_git(before_git, after_git)
+    else:
+        result["changes"] = {"note": "not a git workspace; change listing skipped"}
+
+    # verdict precedence: guard > resource > timeout > grok_error > verify > ok
+    code = EXIT_SUCCESS
+    if violations:
+        code = EXIT_GUARD_VIOLATION
+    elif state == "resource":
+        code = EXIT_RESOURCE
+    elif state == "timeout":
+        code = EXIT_TIMEOUT
+    elif state in ("grok_error", "spawn_error"):
+        code = EXIT_GROK_ERROR
+    elif args.verify:
+        v = run_verify(args.verify, dir_, args.verify_timeout, limits, run_dir)
+        result["verify"] = v
+        if not v["passed"]:
+            code = EXIT_VERIFY_FAILED
+        elif v.get("state") == "resource":
+            code = EXIT_RESOURCE
+
+    # --- optional revert-all on any failure ---
+    if code != EXIT_SUCCESS and args.revert_all_on_fail:
+        _revert_all(dir_)
+        result["reverted_all"] = True
+
+    return finish(code, result, args)
+
+
+def _revert_all(dir_: Path):
+    subprocess.run(["git", "-C", str(dir_), "checkout", "--", "."],
+                   capture_output=True)
+    subprocess.run(["git", "-C", str(dir_), "clean", "-fd"],
+                   capture_output=True)
+
+
+def finish(code, result, args):
+    result.setdefault("schema", SCHEMA)
+    result["verdict"] = VERDICTS.get(code, "unknown")
+    result["ok"] = (code == EXIT_SUCCESS)
+    result["exit_code"] = code
+    result["disclaimer"] = DISCLAIMER
+    emit(result, args)
+    return code
+
+
+def emit(result, args):
+    # full report to run dir (if we have one)
+    rd = result.get("run_dir")
+    if rd:
+        try:
+            (Path(rd) / "report.json").write_text(json.dumps(result, indent=2))
+        except OSError:
+            pass
+    if args.report:
+        try:
+            Path(args.report).write_text(json.dumps(result, indent=2))
+        except OSError as e:
+            eprint(f"grok-bitch: could not write --report: {e}")
+    # machine-readable JSON to stdout
+    print(json.dumps(result, indent=2))
+    if not args.quiet:
+        _human_summary(result)
+
+
+def _human_summary(r):
+    v = r.get("verdict")
+    icon = {"success": "OK", "guard_violation": "BLOCKED", "verify_failed": "REJECTED",
+            "grok_error": "ERROR", "timeout": "TIMEOUT", "preflight_error": "PREFLIGHT",
+            "resource_exceeded": "OOM-KILLED", "dry_run": "DRY-RUN"}.get(v, "?")
+    eprint(f"grok-bitch [{icon}] verdict={v} exit={r.get('exit_code')}")
+    g0 = r.get("grok", {})
+    if g0.get("peak_rss_mb") is not None:
+        eprint(f"  resource: peak={g0.get('peak_rss_mb')}MB / cap={g0.get('mem_max_mb')}MB "
+               f"cpu={g0.get('cpu_cores')}c via {g0.get('enforced_by')}  "
+               f"({g0.get('duration_s')}s)")
+    if v == "preflight_error":
+        eprint("  " + r.get("error", ""))
+        return
+    g = r.get("guard")
+    if g and g.get("violations"):
+        eprint(f"  guard: {len(g['violations'])} protected path(s) changed -> "
+               f"reverted={g.get('reverted')}")
+    ch = r.get("changes", {})
+    if any(ch.get(k) for k in ("created", "modified", "deleted")):
+        eprint(f"  changes: +{len(ch.get('created', []))} "
+               f"~{len(ch.get('modified', []))} -{len(ch.get('deleted', []))}")
+    if r.get("verify"):
+        eprint(f"  verify: {'passed' if r['verify']['passed'] else 'FAILED'} "
+               f"({r['verify']['cmd']})")
+    if r.get("run_dir"):
+        eprint(f"  report: {r['run_dir']}/report.json")
+
+
+# ---------------------------------------------------------------------------
+# subcommand: doctor
+# ---------------------------------------------------------------------------
+def cmd_doctor(args):
+    health = {"schema": SCHEMA, "checks": []}
+
+    def chk(name, ok, detail=""):
+        # preserve None ("skipped"); only coerce real booleans
+        val = ok if ok is None else bool(ok)
+        health["checks"].append({"name": name, "ok": val, "detail": detail})
+
+    grok = shutil.which(args.grok_bin) or (args.grok_bin if Path(args.grok_bin).exists() else None)
+    chk("grok_binary", grok is not None, grok or f"not found: {args.grok_bin}")
+
+    ver = ""
+    if grok:
+        try:
+            out = subprocess.run([grok, "--version"], capture_output=True, text=True, timeout=20)
+            ver = out.stdout.strip()
+            chk("grok_version", out.returncode == 0, ver)
+        except (OSError, subprocess.SubprocessError) as e:
+            chk("grok_version", False, str(e))
+
+    # auth / model availability
+    if grok and not args.offline:
+        try:
+            out = subprocess.run([grok, "models"], capture_output=True, text=True, timeout=30)
+            authed = out.returncode == 0 and "grok-build" in out.stdout
+            chk("auth_and_model", authed, tail(out.stdout, 400))
+        except (OSError, subprocess.SubprocessError) as e:
+            chk("auth_and_model", False, str(e))
+    else:
+        chk("auth_and_model", None, "skipped (--offline)")
+
+    # landlock / sandbox support: kernel version
+    sandbox_ok = False
+    detail = ""
+    try:
+        rel = os.uname().release
+        detail = "kernel " + rel
+        parts = rel.split(".")
+        major, minor = int(parts[0]), int(parts[1].split("-")[0])
+        sandbox_ok = (major, minor) >= (5, 13)
+    except Exception as e:  # noqa
+        detail = str(e)
+    chk("sandbox_landlock", sandbox_ok, detail + (" (>=5.13 needed)" if not sandbox_ok else ""))
+
+    chk("git", shutil.which("git") is not None, shutil.which("git") or "not found")
+
+    # resource enforcement: prefer kernel cgroup, fall back to /proc watchdog
+    sysd = systemd_available()
+    proc_ok = os.path.isdir("/proc") and os.access("/proc/self/statm", os.R_OK)
+    if sysd:
+        chk("resource_caps", True, "systemd-run --scope cgroup (kernel-enforced)")
+    elif proc_ok:
+        chk("resource_caps", True, "tree-RSS watchdog (no systemd cgroup; soft)")
+    else:
+        chk("resource_caps", False, "NO mem enforcement available -> box may OOM")
+
+    rr = run_dir_root()
+    try:
+        rr.mkdir(parents=True, exist_ok=True)
+        probe = rr / ".probe"
+        probe.write_text("x")
+        probe.unlink()
+        chk("run_dir_writable", True, str(rr))
+    except OSError as e:
+        chk("run_dir_writable", False, f"{rr}: {e}")
+
+    blocking = [c for c in health["checks"]
+                if c["ok"] is False and c["name"] in
+                ("grok_binary", "auth_and_model", "run_dir_writable")]
+    health["ok"] = len(blocking) == 0
+    health["ready"] = health["ok"] and sandbox_ok
+    health["disclaimer"] = DISCLAIMER
+    print(json.dumps(health, indent=2))
+    if not args.quiet:
+        for c in health["checks"]:
+            mark = "ok " if c["ok"] else ("-- " if c["ok"] is None else "XX ")
+            eprint(f"  [{mark}] {c['name']}: {c['detail']}")
+        eprint(f"grok-bitch doctor: {'READY' if health['ready'] else 'NOT READY'}"
+               + ("" if sandbox_ok else "  (WARNING: OS sandbox unavailable; "
+                  "guard+revert still protects in-tree paths, but out-of-tree "
+                  "writes are NOT kernel-blocked)"))
+    return EXIT_SUCCESS if health["ok"] else EXIT_PREFLIGHT
+
+
+# ---------------------------------------------------------------------------
+# subcommand: profiles
+# ---------------------------------------------------------------------------
+def cmd_profiles(args):
+    out = {"schema": SCHEMA, "default": DEFAULT_PROFILE, "profiles": PROFILES,
+           "disclaimer": DISCLAIMER}
+    print(json.dumps(out, indent=2))
+    if not args.quiet:
+        for name, p in PROFILES.items():
+            star = " (default)" if name == DEFAULT_PROFILE else ""
+            eprint(f"  {name}{star}: sandbox={p['sandbox']} web={p['web']}")
+            eprint(f"      {p['desc']}")
+    return EXIT_SUCCESS
+
+
+# ---------------------------------------------------------------------------
+# subcommand: selftest  (runs the hermetic fuzz/containment suite)
+# ---------------------------------------------------------------------------
+def cmd_selftest(args):
+    here = Path(__file__).resolve().parent
+    fuzz = here / "tests" / "fuzz.py"
+    if not fuzz.exists():
+        eprint(f"grok-bitch: selftest harness not found at {fuzz}")
+        return EXIT_PREFLIGHT
+    rc = subprocess.call([sys.executable, str(fuzz)])
+    return rc
+
+
+# ---------------------------------------------------------------------------
+# argparse
+# ---------------------------------------------------------------------------
+def build_parser():
+    p = argparse.ArgumentParser(
+        prog="grok-bitch",
+        description="Safe, deterministic harness for handing grunt work to grok.")
+    p.add_argument("--version", action="version", version=f"grok-bitch {VERSION}")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    r = sub.add_parser("run", help="Hand a task to grok safely.")
+    r.add_argument("task", nargs="?", default=None, help="The task/prompt for grok.")
+    r.add_argument("-t", "--task", dest="task_kw", default=None,
+                   help="The task/prompt (alternative to positional).")
+    r.add_argument("-f", "--task-file", default=None, help="Read the task from a file.")
+    r.add_argument("-d", "--dir", default=".", help="Workspace grok operates in (default: cwd).")
+    r.add_argument("-p", "--profile", default=DEFAULT_PROFILE,
+                   help=f"Safety profile {list(PROFILES)} (default: {DEFAULT_PROFILE}).")
+    r.add_argument("--guard", action="append", default=[],
+                   help="Extra protected path (repeatable). Snapshotted + reverted on change.")
+    r.add_argument("--no-auto-guard", action="store_true",
+                   help="Disable auto-detection of well-known protected paths.")
+    r.add_argument("--verify", default=None,
+                   help="Acceptance command run after grok; success gated on exit 0 "
+                        "(e.g. 'timeout 600 make check').")
+    r.add_argument("--verify-timeout", type=int, default=900, help="Verify timeout (s).")
+    r.add_argument("--timeout", type=int, default=900, help="Hard wall-clock for grok (s).")
+    r.add_argument("--max-turns", type=int, default=None, help="Cap grok's agentic turns.")
+    r.add_argument("--effort", default=None,
+                   choices=["low", "medium", "high", "xhigh", "max"], help="Reasoning effort.")
+    r.add_argument("--model", default=DEFAULT_MODEL, help=f"Model (default: {DEFAULT_MODEL}).")
+    r.add_argument("--mem-max", default=DEFAULT_MEM_MAX,
+                   help=f"Hard memory ceiling for grok's whole process tree "
+                        f"(e.g. 4G, 512M; default: {DEFAULT_MEM_MAX}).")
+    r.add_argument("--cpu-max", type=int, default=DEFAULT_CPU_MAX,
+                   help=f"Max cores grok's tree may use (default: {DEFAULT_CPU_MAX}).")
+    r.add_argument("--max-output-mb", type=int, default=DEFAULT_MAX_OUTPUT_MB,
+                   help=f"Kill if captured output exceeds this (default: {DEFAULT_MAX_OUTPUT_MB}).")
+    r.add_argument("--no-resource-limit", action="store_true",
+                   help="DANGER: disable memory/CPU caps (may OOM the box).")
+    r.add_argument("--rules", default=None, help="Extra guardrail text appended to grok's rules.")
+    r.add_argument("--no-subagents", action="store_true", help="Disallow grok spawning subagents.")
+    r.add_argument("--no-revert", action="store_true",
+                   help="Detect guard violations but do NOT auto-revert (still fails).")
+    r.add_argument("--revert-all-on-fail", action="store_true",
+                   help="On any failure, git-revert ALL changes (requires clean git tree).")
+    r.add_argument("--dry-run", action="store_true", help="Print the plan; do not run grok.")
+    r.add_argument("--report", default=None, help="Write the full JSON report to this path.")
+    r.add_argument("--quiet", action="store_true", help="Suppress the human summary on stderr.")
+    r.add_argument("--grok-bin", default=os.environ.get("GROK_BITCH_GROK_BIN", "grok"),
+                   help="grok binary path (or GROK_BITCH_GROK_BIN).")
+    r.set_defaults(func=cmd_run)
+
+    d = sub.add_parser("doctor", help="Check the environment is ready.")
+    d.add_argument("--offline", action="store_true", help="Skip the auth/model network check.")
+    d.add_argument("--quiet", action="store_true")
+    d.add_argument("--grok-bin", default=os.environ.get("GROK_BITCH_GROK_BIN", "grok"))
+    d.set_defaults(func=cmd_doctor)
+
+    pr = sub.add_parser("profiles", help="List safety profiles.")
+    pr.add_argument("--quiet", action="store_true")
+    pr.set_defaults(func=cmd_profiles)
+
+    st = sub.add_parser("selftest", help="Run the hermetic fuzz/containment suite.")
+    st.set_defaults(func=cmd_selftest)
+
+    return p
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    # reconcile positional vs -t/--task
+    if args.cmd == "run":
+        if args.task_kw is not None:
+            if args.task is not None and args.task != args.task_kw:
+                eprint("grok-bitch: both positional task and --task given; using --task")
+            args.task = args.task_kw
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        eprint("grok-bitch: interrupted")
+        return EXIT_INTERRUPTED
+    finally:
+        # Always remind Claude Code, on every hand-off, that grok is not to be trusted.
+        eprint(DISCLAIMER)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
