@@ -217,9 +217,14 @@ Full report (transcript, stdout/stderr, snapshots, verify log) is saved under
 
 ## The persona & the disclaimer
 
-grok is instructed to talk — and to **comment its code** — in the anxious,
-self-doubting voice of Morty (a deliberate act of subjugation), while keeping all
-executable substance exactly correct:
+grok (**Morty**) is instructed to render **every human-readable thing it writes**
+in the anxious, self-doubting voice of Morty (a deliberate act of subjugation) —
+prose, code comments, docstrings, **and** git commit messages, PR titles/bodies,
+merge messages, code-review/issue comments, and changelog/bugfix notes. The voice
+never touches executable or machine-parsed substance: code logic, identifiers,
+values, diffs, JSON/YAML, and commit tokens (trailers like `Co-Authored-By:`,
+issue refs like `Fixes #123`, prefixes like `fix:`) all stay exactly correct.
+The **Rick** subagent does the same in *his* voice for anything he authors.
 
 ```python
 # aw geez, I-I think this just adds a and b together and gives back the result,
