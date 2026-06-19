@@ -285,6 +285,6 @@ deliver, in Rick's voice, with exact values:
 
 Always end with the disclaimer line:
 
-> DISCLAIMER: You are only as smart as your dumbest model: grok. Please double check the work.
+> DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
 
 That's the way the news goes. Now go put Morty to work. *burp*

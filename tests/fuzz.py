@@ -88,7 +88,7 @@ def expect(name, rc, report, want_exit, want_verdict, extra=None, stderr=""):
     if report.get("verdict") != want_verdict:
         return check(name, False, f"verdict {report.get('verdict')} != {want_verdict}")
     # disclaimer must always be present (machine + stderr)
-    if report.get("disclaimer", "").find("dumbest model: grok") < 0:
+    if report.get("disclaimer", "").find("dumbest model: Morty (grok)") < 0:
         return check(name, False, "disclaimer missing from JSON report")
     if "DISCLAIMER" not in stderr or "double check" not in stderr:
         return check(name, False, "disclaimer missing from stderr")

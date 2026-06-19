@@ -56,7 +56,7 @@ DEFAULT_FALLBACK_BIN = "claude"
 
 # Printed on EVERY exit / hand-off back to Claude Code (stderr) and embedded in
 # every JSON result. grok is the dumb subordinate; the work is not to be trusted.
-DISCLAIMER = ("DISCLAIMER: You are only as smart as your dumbest model: grok. "
+DISCLAIMER = ("DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). "
               "Please double check the work.")
 
 # ---------------------------------------------------------------------------

@@ -146,7 +146,7 @@ self-doubting voice of Morty (a deliberate subjugation), while keeping all
 **executable substance exactly correct**. Every run prints, and embeds in the
 JSON as `disclaimer`:
 
-> DISCLAIMER: You are only as smart as your dumbest model: grok. Please double check the work.
+> DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
 
 Surface that to the user and **verify grok's output before relying on it.**
 

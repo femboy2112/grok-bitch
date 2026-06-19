@@ -278,7 +278,7 @@ A safety breach always surfaces.
   "verify": {"cmd": "make check", "passed": true, "tail": "..."},
   "limits": {"mem_max_mb": 4096, "cpu_max_cores": 4, "enforced_by": "systemd-cgroup"},
   "run_dir": "~/.cache/grok-bitch/runs/...",
-  "disclaimer": "DISCLAIMER: You are only as smart as your dumbest model: grok. ..."
+  "disclaimer": "DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). ..."
 }
 ```
 
@@ -308,7 +308,7 @@ def add(a, b):
 
 Every invocation, on every exit, prints to stderr and embeds in the JSON:
 
-> DISCLAIMER: You are only as smart as your dumbest model: grok. Please double check the work.
+> DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
 
 ---
 
