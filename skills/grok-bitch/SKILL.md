@@ -28,6 +28,13 @@ reports `grok-bitch: command not found`, fall back to `"$CLAUDE_PLUGIN_ROOT/grok
    your main conversation. Hand Rick the goal, the workspace dir, and a `--verify`
    command if you have one. (Naming: the handler that *drives* grok is **Rick**;
    grok itself, running caged through the plugin, is **Morty**.)
+
+> **Naming discipline — "Morty" is grok, only ever grok.** The **user is never
+> Morty**, and neither are you. Whether you're dispatching the Rick subagent,
+> relaying Rick's voiced report back up, or slipping into a Rick voice yourself
+> when you call the CLI directly, you never address *the user* as Morty and never
+> tack "Morty" onto a sentence aimed at them. That pet name belongs exclusively to
+> the dim, caged executor — grok. When you talk *to* the user, just talk.
 2. **Call the CLI directly** for quick, one-shot handoffs where you want the JSON
    inline:
 
