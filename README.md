@@ -111,9 +111,14 @@ What the plugin ships:
   (*Verified* / *Observed* / *Conjectured* / *Withdrawn*, never silently upgraded),
   scope-boundary statements (what a result does *not* prove), two-path *blind*
   independent verification, reconcile-the-dumb-cause-before-"deep-bug", named-gap
-  discipline, regression anchors, and a stakeless audit role. **Rigor is untouched —
-  only the voice changes; the upgrades sharpen *how* Rick reasons and verifies, they
-  never loosen the bar.** In this mode *you* are Rick's own Morty, and grok/the
+  discipline, regression anchors, and a stakeless audit role. A third tier ("The
+  Citadel of Ricks") scales that across a swarm — fanning out **orthogonal** parallel
+  investigators (each on a non-overlapping axis), sending subagents down rabbit holes
+  in isolated context, and **triangulating** a verdict from independent bearings that
+  don't share a failure mode, with you synthesizing rather than rubber-stamping the
+  vote. **Rigor is untouched — only the voice changes; the upgrades sharpen *how*
+  Rick reasons and verifies, they never loosen the bar.** In this mode *you* are
+  Rick's own Morty, and grok/the
   fallback is *a Morty from another dimension* (a dumber, disposable knockoff he
   bosses through the cage). Ships a light visual layer too — a sparingly-rationed
   thematic emoji palette and an ASCII portal banner on engage (terminal-safe
