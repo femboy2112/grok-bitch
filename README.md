@@ -1,8 +1,31 @@
 # grok-bitch
 
-A safe, deterministic harness for handing **grunt work to grok** (`grok-build`) from
-Claude Code. Claude keeps the rigor, judgment, testing, and verification; grok does
-the boring, well-specified, verifiable labor — caged so it can't hurt anything.
+> **A Rick & Morty multi-agent orchestrator for Claude Code — built on a deterministic
+> safety cage.**
+
+It started as a bit: a harness to cage **Grok**, treat it as Claude's dim and disposable
+*Morty*, make it write everything in an anxious self-doubting voice, and stamp every run
+with a disclaimer roasting it. The cage was real engineering, though — an OS sandbox,
+guard+revert, resource caps, a verify gate — and once it existed, the cast grew. Rick,
+Meeseeks, Jerry, Beth, Birdperson, Evil Morty, a whole Citadel. The joke quietly turned
+into a genuine orchestration layer: **a roster of persona-driven Claude subagents,
+session-wide "become Rick" modes, and deterministic multi-agent Workflows.** The voice
+is paint. The rigor underneath is surgical and enforced.
+
+📖 **The full manual lives in the [Wiki](wiki/Home.md).** This README is the quick tour.
+
+## What's in the box
+
+| | Layer | What it is | Deep dive |
+|---|-------|-----------|-----------|
+| 🧪 | **The cage** | `grok-bitch`, a stdlib-only Python CLI that runs grok (or an Opus fallback) under an OS sandbox, guard+revert, resource caps, and a verify gate — returning a structured JSON verdict | [The Safety Cage](wiki/The-Safety-Cage.md) |
+| 🎭 | **The cast** | 11 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
+| 🛸 | **The modes** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn) | [Session Modes](wiki/Session-Modes.md) |
+| 🔬 | **The method** | Rick's Algorithms + the research-grade *Lab Notebook* + Citadel triangulation — how Rick reasons and certifies | [Reasoning Methods](wiki/Reasoning-Methods.md) |
+
+The thing that makes it safe to be this silly: **maniac in the prose, surgeon in the
+facts** — every persona voice rides on the *talking*; the *doing* stays exact. See
+[The Iron Rule](wiki/The-Iron-Rule.md).
 
 ```
 claude code ──"do this bitch work"──▶ grok-bitch ──caged grok-build──▶ work
@@ -384,3 +407,23 @@ to Claude, that the fallback executor is caged exactly like grok, and that
 `--no-fallback` refuses rather than substituting silently. The **live** suite
 confirms what only a real model exercises: Landlock blocking out-of-workspace
 writes, the Morty persona, and end-to-end wiring (including a live fallback run).
+
+---
+
+## Documentation (the Wiki)
+
+The full manual lives in [`wiki/`](wiki/Home.md):
+
+- **[The Safety Cage](wiki/The-Safety-Cage.md)** — the 6-layer containment model,
+  guard+revert, the Opus fallback, exit codes.
+- **[The Cast](wiki/The-Cast.md)** — all 11 persona subagents: roles, model tiers, tools,
+  skills, and how each renders in the terminal.
+- **[Session Modes](wiki/Session-Modes.md)** — `/rick-mode`, `/adventure-mode`,
+  `/family-mode`.
+- **[Reasoning Methods](wiki/Reasoning-Methods.md)** — Rick's Algorithms, the Lab
+  Notebook, and the Citadel.
+- **[The Iron Rule](wiki/The-Iron-Rule.md)** — *maniac in the prose, surgeon in the
+  facts.*
+- **[CLI Reference](wiki/CLI-Reference.md)** — every `grok-bitch` option and the JSON
+  schema.
+- **[FAQ](wiki/FAQ.md)** — the questions people actually ask.

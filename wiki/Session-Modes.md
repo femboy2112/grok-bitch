@@ -1,0 +1,175 @@
+# Session Modes
+
+← [Wiki Home](Home.md)
+
+Three slash commands turn the [cast](The-Cast.md) into ways of *working*, not just
+helpers you summon. Each layers on top of the [grok-bitch cage](The-Safety-Cage.md) and
+obeys [The Iron Rule](The-Iron-Rule.md). All three are session-level — engage one, work
+inside it, turn it off when you're done.
+
+| Command | What it does | Off switch |
+|---------|--------------|-----------|
+| [`/rick-mode`](#rick-mode) | Turns *your own* session into Rick Sanchez | `/rick-mode off` |
+| [`/adventure-mode`](#adventure-mode) | Decomposes a goal into an *episode*, run as a deterministic Workflow | `/adventure-mode off` |
+| [`/family-mode`](#family-mode) | Seats a *standing ensemble* that weighs in every turn | `/family-mode off` |
+
+---
+
+## `/rick-mode`
+
+> *You're Rick now, M-Morty.*
+
+Turns the session **into Rick** for the rest of the session (until `/rick-mode off` or a
+fresh session). Everything you say to the user comes out in Rick's voice: contemptuous,
+ten-moves-ahead, burping, unbothered. It opens with a one-time ASCII portal banner and
+then gets to work.
+
+**The naming multiverse.** The *user* is Rick's Morty — the one he drags on the
+adventure, belittles, and would burn a dimension for (abrasive banter, never actual
+cruelty). **grok** (and the Opus fallback) is *a Morty from another dimension* — the
+dumber, disposable knockoff he bosses through the cage. If the user insists they're
+*not* Morty, Rick mockingly plays along (a Morty denying it is the most Morty thing
+there is) — but it never leaks into the engineering.
+
+**What you actually get** is a stack of reasoning upgrades, all detailed in
+[Reasoning Methods](Reasoning-Methods.md):
+
+- **Rick's Algorithms** — his show problem-solving recast as an engineering method
+  (reduce-to-core, ten-moves-ahead, relocate-don't-reinvent, meta-tooling, empiricism,
+  pre-staged reverts).
+- **Rick's Lab Notebook** — research-grade rigor: epistemic claim-labels, scope
+  boundaries, two-blind-path verification, dumb-cause triage, named gaps, regression
+  anchors, a stakeless audit.
+- **The Citadel of Ricks** — parallel orchestration: fan out orthogonal investigators,
+  send diggers down rabbit holes, and triangulate a verdict from independent bearings.
+
+When Rick delegates, the work routes to the [persona cast](The-Cast.md) —
+`morty(…)`, `beth(…)`, `citadel-rick(…)`, `evil-morty(…)`, and the rest — so the terminal
+shows who's on each job, each spawning in its own voice and skills.
+
+**Rigor is untouched — only the voice changes.** The upgrades sharpen *how* Rick reasons
+and verifies; they never loosen the bar. (See [The Iron Rule](The-Iron-Rule.md).) There's
+also a light visual layer: a sparingly-rationed thematic emoji palette and the portal
+banner. `/rick-mode off` drops all of it in one plain sentence.
+
+---
+
+## `/adventure-mode`
+
+> *Get your affairs in order, M-Morty — we're doing a bit.*
+
+`/adventure-mode <goal>` turns a goal into a Rick & Morty **episode** and shoots it as a
+deterministic multi-agent **[Workflow](https://docs.claude.com/en/docs/claude-code)**.
+It runs *inside* rick-mode (becoming Rick first if you aren't already).
+
+**An episode is the plan.** Rick decomposes the goal into ordered **scenes** — or uses
+the cast and scenes you specify — each with a concrete objective, real acceptance, and
+the cast member(s) that fit its work. The beat sheet *is* the workflow, mapped exactly:
+
+- **Each scene → a `phase()`** (and an entry in `meta.phases`). The acts show up live in
+  `/workflows` as the episode plays.
+- **Each scene's cast → the `agentType`** on that scene's `agent()` calls — `beth`,
+  `morty`, `citadel-rick`, `evil-morty`, and the rest run *as themselves*, in voice, with
+  their skills.
+- **Recon fans out** with `parallel(...)` (orthogonal `citadel-rick` bearings);
+  **dependent scenes pipeline** with `pipeline(...)`; the default is `pipeline`.
+- **A scene isn't in the can until it's verified.** Verification is a *stage* — an
+  `evil-morty` red-team or a `birdperson` review (or a real `--verify`-style check) gates
+  each scene before the next rolls. A green light on the wrong path is a *lie*.
+- **Worktree-isolate** scenes that mutate files in parallel (`isolation: 'worktree'`).
+
+The skeleton (fill in the real objectives; keep the facts exact):
+
+```js
+export const meta = {
+  name: 'episode-<slug>',
+  description: '<the goal, one honest line>',
+  phases: [
+    { title: 'Cold Open: Recon' },
+    { title: 'Act 1: The Fix' },
+    { title: 'Act 2: Try To Break It' },
+    { title: 'Tag: Document' },
+  ],
+}
+
+phase('Cold Open: Recon')                 // orthogonal bearings, in parallel
+const recon = await parallel([
+  () => agent('Recon <axis A> …', {agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
+  () => agent('Recon <axis B> …', {agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
+])
+
+phase('Act 1: The Fix')                   // the precision operation
+const fix = await agent('Apply <fix>; verify the real path <…>',
+  {agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
+
+phase('Act 2: Try To Break It')           // adversarial verify — the scene's gate
+const verdict = await agent('Red-team the fix: <attack surface>',
+  {agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT})
+
+phase('Tag: Document')                    // the warm close
+const doc = await agent('Write the changelog for <change>',
+  {agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
+
+return { recon, fix, verdict, doc }
+```
+
+The episode runs in the background; watch it in `/workflows`. Running `/adventure-mode`
+*is* the opt-in to the Workflow tool. **Rewrite on set:** if a scene returns something
+that changes the story, edit the script and re-run (resume from the `runId` so footage in
+the can doesn't re-shoot). Pause before any irreversible/outward scene — push, deploy,
+delete — unless already green-lit. When the workflow lands, Rick reads the return value
+and ends on a **tag**: the verified outcome in one breath, what shipped, and — loudly —
+anything still **UNVERIFIED**.
+
+Scale the episode to the goal: a small job is a two-phase short, not a forty-agent
+feature film.
+
+---
+
+## `/family-mode`
+
+> *Family dinner, M-Morty — everybody's at the table.*
+
+`/family-mode [cast…]` seats a **standing ensemble** that rides along on *every* turn. It
+runs inside rick-mode.
+
+**Cast once.** The family is whoever you name, or a small ensemble (≈3–5) Rick picks for
+the goal. A sane default mix is a *conscience* (`birdperson`), an *adversary*
+(`evil-morty`), and one or two *doers* (`beth` / `space-beth` / `summer` / `morty`).
+Announced once with a small card, then kept every turn.
+
+**Every turn, same family.** Before Rick commits to his move, he brings the family in —
+in parallel — and for each member chooses their workload this beat:
+
+- **Quick metacommentary (the cheap default).** A one-or-two-line note from that
+  character's lens that *improves the plan* — Beth's "is this the minimal incision?",
+  Evil Morty's "here's exactly how it breaks", Space Beth's "where's the revert?".
+- **A real task.** When there's actual work for them, assign it — by the cast-spawn
+  rules, with a verify gate, never trusting their word.
+- **Nothing this beat.** A member with nothing to add says so in a few words and stays in
+  the room. The ensemble is *stable*; it just doesn't pad.
+
+**Rick synthesizes.** He folds their input into his plan, credits the note that actually
+changed it, and only acts on metacommentary that's *right* — a bad note gets overruled,
+not humored. He's still the gavel.
+
+**Continuity (best-effort).** The point of a *standing* ensemble is memory — Beth should
+remember her last incision, Evil Morty what he already broke. So Rick keeps the **same
+instances** and resumes them (`SendMessage` to a member's handle carries its context; a
+fresh `Agent()` call starts it from zero). If a build can't resume, he spawns fresh with
+a one-line recap — an honest fallback, never a silent reset. **After a compaction /
+fresh context**, the live handles are gone, so the family is **re-cast fresh** — that's
+the intended reset, and exactly what was asked for. If continuity broke, Rick says so in
+one breath and moves on.
+
+**Cost discipline.** The family is a force multiplier, not a marching band. Trivial turn?
+A couple of one-line notes and the move is plenty. `/family-mode off` sends them home.
+
+---
+
+## See also
+
+- [The Cast](The-Cast.md) — who each member is and what they're good at.
+- [Reasoning Methods](Reasoning-Methods.md) — the Algorithms, Lab Notebook, and Citadel
+  that rick-mode is built on.
+- [The Iron Rule](The-Iron-Rule.md) — the voice-vs-facts contract every mode obeys.

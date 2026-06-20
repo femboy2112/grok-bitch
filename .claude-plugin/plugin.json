@@ -1,12 +1,12 @@
 {
   "name": "grok-bitch",
   "version": "1.0.0",
-  "description": "Offload mechanical, well-specified, verifiable grunt work to grok (grok-build) from Claude Code. grok runs caged: an OS sandbox, hard resource caps so it can't OOM the box, byte-snapshot guard+revert on protected paths, and a verify gate — and hands back a structured JSON verdict. Claude keeps the rigor; grok does the bitch work. Ships a skill (so Claude reaches for it automatically) and a Rick-and-Morty cast of subagents: Rick (Opus, the 300-IQ handler that bosses grok/Morty around in an isolated context and returns a clean verdict), Mr. Meeseeks (Sonnet, summoned to complete one bounded task end-to-end then vanish), and Jerry (fast cheap Claude Haiku for trivial scraps) — plus the grok-bitch CLI on PATH.",
+  "description": "A Rick & Morty multi-agent orchestrator for Claude Code, built on a deterministic safety cage. Offload mechanical, verifiable grunt work to grok (grok-build) — it runs caged (OS sandbox, hard resource caps, byte-snapshot guard+revert on protected paths, a verify gate) and hands back a structured JSON verdict; falls back to a caged Opus when grok is unavailable. Claude keeps the rigor; grok does the bitch work. Ships a skill (so Claude reaches for it automatically), an 11-strong persona cast of subagents (Rick the 300-IQ handler, Morty the grunt courier, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty — each with show-accurate skills and a style-accurate model tier), three session modes (/rick-mode to become Rick, /adventure-mode to run a goal as a multi-agent Workflow, /family-mode for a standing ensemble), and the grok-bitch CLI on PATH. The voice is paint; the rigor underneath is surgical — maniac in the prose, surgeon in the facts.",
   "author": {
     "name": "femboy2112",
     "email": "femboy2112@gmail.com"
   },
   "homepage": "https://github.com/femboy2112/grok-bitch",
   "repository": "https://github.com/femboy2112/grok-bitch.git",
-  "keywords": ["grok", "delegation", "sandbox", "subagent", "grunt-work"]
+  "keywords": ["grok", "delegation", "sandbox", "subagent", "grunt-work", "orchestrator", "multi-agent", "rick-and-morty", "workflow"]
 }
