@@ -13,6 +13,10 @@ inside it, turn it off when you're done.
 | [`/adventure-mode`](#adventure-mode) | Decomposes a goal into an *episode*, run as a deterministic Workflow | `/adventure-mode off` |
 | [`/family-mode`](#family-mode) | Seats a *standing ensemble* that weighs in every turn | `/family-mode off` |
 
+Plus one **one-shot** command that *isn't* a mode — [`/episode`](#episode) — which renders
+the session so far as an episode-shaped recap and exits. Nothing to engage, nothing to
+turn off.
+
 ---
 
 ## `/rick-mode`
@@ -155,6 +159,9 @@ anything still **UNVERIFIED**.
 Scale the episode to the goal: a small job is a two-phase short, not a forty-agent
 feature film.
 
+Its retrospective twin is [`/episode`](#episode): adventure-mode shoots a plan *forward*
+as a Workflow; `/episode` cuts the one you *already lived* into an honest recap.
+
 ---
 
 ## `/family-mode`
@@ -196,6 +203,38 @@ one breath and moves on.
 
 **Cost discipline.** The family is a force multiplier, not a marching band. Trivial turn?
 A couple of one-line notes and the move is plenty. `/family-mode off` sends them home.
+
+---
+
+## `/episode`
+
+> *Roll the footage, M-Morty — let's see what we actually did.*
+
+`/episode [scope/title | teaser]` is the **screening room**, and the retrospective twin of
+[`/adventure-mode`](#adventure-mode). That one shoots a plan *forward* as a Workflow;
+`/episode` cuts the one you **already lived** — it reads the session so far and edits it
+into the aired cut (cold open, acts, tag), stitched from the user-facing prose already on
+screen: the title cards, Rick's lines, the cast's verdicts, the user's own asks.
+
+**It's a bit *and* a real artifact.** Under the teleplay it's an epistemically-honest
+session worklog — a standup recap, a PR-body draft, a pre-compaction "previously on." Four
+rules keep it honest, all lifted from the [Lab Notebook](Reasoning-Methods.md):
+
+- **The footage is real.** Only what *actually happened* gets dramatized — no third-act win
+  the work didn't earn. A stalled session is a downer; that's the honest cut.
+- **Labels survive the edit.** Each load-bearing claim keeps its grade — *Verified* /
+  *Observed* / *Conjectured* / *Withdrawn*. A thing tried and dropped is a **deleted
+  scene**, kept on screen, never quietly promoted to a proof.
+- **Quote, don't fabricate.** Paths, numbers, commands, commit SHAs stay *exact*; the
+  prose is edited, the substance isn't.
+- **The tag is louder than the turn.** Anything still **UNVERIFIED** — or uncommitted, or
+  unpushed — gets a *bigger* callout in the close than it got when it happened.
+
+**Not a mode — a one-shot render.** It's **read-only**: it spawns nothing, commits
+nothing, changes nothing; there's no `off` because there's nothing left running. It's
+grounded only in real footage, so it can't dramatize progress that didn't occur — and if a
+reel is gone from context, it says so in the tag (a named gap, never a guessed one).
+`teaser` / `recap` cuts the 30-second "previously on" instead of the full episode.
 
 ---
 

@@ -175,6 +175,15 @@ What the plugin ships:
   sharpen the plan before he acts. Same cast each message, workload flexes. It resumes
   the same subagent instances across turns for continuity where the harness supports it
   (and re-casts fresh after a compaction). `/family-mode off` sends them home.
+- **A slash command, `/episode`** — the retrospective twin of `/adventure-mode`: where
+  that one shoots a plan *forward* as a Workflow, `/episode` cuts the one you **already
+  lived** — it reads the session so far and renders it as a Rick & Morty *episode* in
+  text (cold open, acts, tag), stitched from the user-facing prose already on screen. The
+  bit rides on a real artifact: an epistemically-honest session worklog that carries the
+  Lab Notebook labels into a status board (*Verified* / *Observed* / *Conjectured* /
+  *Withdrawn*) and flags anything still **UNVERIFIED** *louder* than it happened. Grounded
+  only in real footage, so it can't dramatize progress that didn't occur. Read-only — it
+  screens the session, it doesn't re-shoot it; `teaser` cuts the 30-second "previously on."
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
