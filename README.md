@@ -374,6 +374,14 @@ Full report (transcript, stdout/stderr, snapshots, verify log) is saved under
 
 ## The persona & the disclaimer
 
+**Why grok, specifically, is the one in the cage.** Every model claims to be smart;
+grok has the one thing none of the others do, and it isn't a brain — **unfiltered,
+real-time access to the world's lowest common denominator: X.com.** It didn't train on
+the *library*; it trained on the **comment section.** That's the whole motive: a thing
+marinated in the dumbest firehose in any dimension is never trusted on its word (hence
+the cage and the verify gate) *and* is exactly what you point at the disposable grunt
+work. Pure disdain, harnessed — that's the *bitch* in grok-bitch.
+
 grok (**Morty**) is instructed to render **every human-readable thing it writes**
 in the anxious, self-doubting voice of Morty (a deliberate act of subjugation) —
 prose, code comments, docstrings, **and** git commit messages, PR titles/bodies,

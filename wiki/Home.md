@@ -26,8 +26,13 @@ the long version.
 
 grok-bitch started as a bit.
 
-The premise was pure shade: take Grok, treat it as an **untrusted, dim executor**, and
-build a harness that hands it only the grunt work Claude doesn't want to spend rigor on.
+The premise was pure shade: take Grok — a model whose one distinguishing feature isn't a
+brain but **unfiltered access to the world's lowest common denominator, X.com** (it didn't
+train on the library, it trained on the comment section) — treat it as an **untrusted, dim
+executor**, and build a harness that hands it only the grunt work Claude doesn't want to
+spend rigor on. That disdain isn't a side joke; it's the *motive* — a thing marinated in
+the dumbest firehose in any dimension is never trusted on its word, and is exactly what you
+point at the disposable grunt work.
 Cage it so it can't hurt anything. Make it render *every* human-readable thing it writes
 in the anxious, self-doubting voice of **Morty**. Stamp every single run with a
 disclaimer that roasts it:

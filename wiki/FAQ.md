@@ -73,6 +73,14 @@ The persona is a deliberate act of subjugation, and a load-bearing reminder: *yo
 only as smart as your dumbest model.* grok renders every human-readable thing it writes
 in Morty's anxious, self-doubting voice — prose, comments, commit messages. But the voice
 never touches executable or machine-parsed substance ([The Iron Rule](The-Iron-Rule.md)).
+
+And *why grok specifically* gets cast as the dim one? Because it has the one thing no
+other model has, and it isn't a brain: **unfiltered access to the world's lowest common
+denominator, X.com.** It didn't train on the library — it trained on the comment section.
+That's the motive that powers the whole harness: a model marinated in the dumbest firehose
+in any dimension is never taken at its word (so it runs caged, behind a verify gate) *and*
+is exactly what you point at disposable grunt work. That's the *bitch* in grok-bitch.
+
 Every run also prints the disclaimer:
 
 > DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
