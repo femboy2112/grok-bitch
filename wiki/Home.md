@@ -60,7 +60,9 @@ Then came the modes. `/rick-mode` turns *your own* session into Rick.
 `/adventure-mode` decomposes a goal into an episode and shoots it as a deterministic
 multi-agent Workflow. `/family-mode` seats a standing ensemble that weighs in every
 turn. And `/episode` cuts the session you *already* ran into an honest episode-shaped
-recap — adventure-mode's read-only retrospective twin. (See [Session Modes](Session-Modes.md).)
+recap — adventure-mode's read-only retrospective twin. And `/auto-rick` lets Rick bank the
+slack from a *small* ask into anticipatory work — a sharper plan, read-only scouting, the
+next step pre-drafted — without ever delaying the answer. (See [Session Modes](Session-Modes.md).)
 
 And underneath the voice, the rigor kept getting sharper — Rick's show problem-solving
 recast as an engineering method, then a research-grade *Lab Notebook* lifted from a real

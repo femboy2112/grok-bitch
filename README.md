@@ -184,6 +184,18 @@ What the plugin ships:
   *Withdrawn*) and flags anything still **UNVERIFIED** *louder* than it happened. Grounded
   only in real footage, so it can't dramatize progress that didn't occur. Read-only — it
   screens the session, it doesn't re-shoot it; `teaser` cuts the 30-second "previously on."
+- **A slash command, `/auto-rick`** — an **augmentation of `/rick-mode`** (not a mode of
+  its own): while rick-mode is on and your request is *small*, Rick spends the leftover
+  turn budget on high-value anticipatory work — surfacing the next decision-tree branch,
+  read-only scouting for prior art and gotchas, anticipating the next ask (labeled
+  *Conjectured*), pre-drafting the obvious next step, flagging toil worth tooling, or
+  sweeping for anything still **UNVERIFIED** — appended as a clearly-marked, skippable
+  dividend *after* the real answer. Strictly answer-first; it **acts only on small, safe,
+  reversible changes** — scratch/notes files, workspace & workflow tooling, a pre-staged
+  revert — and **proposes anything bigger** (it never silently edits product code, commits,
+  pushes, deletes, or fans out a swarm; its own changes land uncommitted for you to keep or
+  toss), and it stays quiet when there's no slack or nothing worth banking — silence beats
+  filler. `/auto-rick off` drops it.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that

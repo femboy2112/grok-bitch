@@ -106,6 +106,7 @@ Every run also prints the disclaimer:
 | Decompose a goal and run it as a Workflow | [`/adventure-mode`](Session-Modes.md#adventure-mode) |
 | A standing crew that weighs in every turn | [`/family-mode`](Session-Modes.md#family-mode) |
 | Recap the whole session as an episode / honest worklog | [`/episode`](Session-Modes.md#episode) |
+| Let Rick invest spare capacity on small asks (anticipate, scout, pre-draft) | [`/auto-rick`](Session-Modes.md#auto-rick) |
 
 ---
 

@@ -13,9 +13,11 @@ inside it, turn it off when you're done.
 | [`/adventure-mode`](#adventure-mode) | Decomposes a goal into an *episode*, run as a deterministic Workflow | `/adventure-mode off` |
 | [`/family-mode`](#family-mode) | Seats a *standing ensemble* that weighs in every turn | `/family-mode off` |
 
-Plus one **one-shot** command that *isn't* a mode — [`/episode`](#episode) — which renders
-the session so far as an episode-shaped recap and exits. Nothing to engage, nothing to
-turn off.
+Plus two commands that *aren't* standalone modes: [`/episode`](#episode) — a **one-shot**
+render of the session so far that exits (nothing to engage, nothing to turn off) — and
+[`/auto-rick`](#auto-rick) — an **augmentation of rick-mode** that, while it's on and your
+ask is small, spends Rick's spare turn budget on anticipatory work (`/auto-rick off` drops
+it).
 
 ---
 
@@ -55,6 +57,11 @@ shows who's on each job, each spawning in its own voice and skills.
 and verifies; they never loosen the bar. (See [The Iron Rule](The-Iron-Rule.md).) There's
 also a light visual layer: a sparingly-rationed thematic emoji palette and the portal
 banner. `/rick-mode off` drops all of it in one plain sentence.
+
+**Spare cycles.** Its augmentation is [`/auto-rick`](#auto-rick): turn it on and, when your
+request is *small*, Rick spends the leftover turn budget on anticipatory work — a sharper
+plan, read-only scouting, the next step pre-drafted — appended after the answer, never
+instead of it.
 
 ---
 
@@ -235,6 +242,45 @@ nothing, changes nothing; there's no `off` because there's nothing left running.
 grounded only in real footage, so it can't dramatize progress that didn't occur — and if a
 reel is gone from context, it says so in the tag (a named gap, never a guessed one).
 `teaser` / `recap` cuts the 30-second "previously on" instead of the full episode.
+
+---
+
+## `/auto-rick`
+
+> *Spare cycles, M-Morty — a genius doesn't idle.*
+
+`/auto-rick` is an **augmentation of [`/rick-mode`](#rick-mode), not a mode of its own** —
+it needs a Rick to *have* spare cycles, so it only does anything while rick-mode is engaged
+(armed but dormant otherwise). The premise: when your Morty hands Rick a **small** request
+— one he can fully nail with obvious room to spare in the turn — he doesn't answer in three
+words and go dark. He **banks the slack into work that compounds.** It's Algorithm #2
+(ten-moves-ahead) and #4 (build the device that builds the device) pointed at his *idle*
+capacity instead of his busy capacity.
+
+**What the slack buys** — whichever actually pays, never all at once: the next
+decision-tree branch surfaced and pre-empted; **read-only** scouting of the area you just
+touched (the existing util, the gotcha); the next ask anticipated (labeled *Conjectured*);
+the obvious next step pre-drafted; repeated toil flagged with the device that'd kill it; the
+revert the next risky move needs; a Lab-Notebook sweep for anything still **UNVERIFIED**.
+
+**What keeps it from being Jerry** — the guardrails are the whole point:
+
+- **Answer first, always.** The real request gets full rigor, complete, *before* a spare
+  cycle goes anywhere. The dividend never delays or buries it.
+- **Act small and safe; propose the rest.** It may *do* the small, reversible,
+  off-to-the-side things — scratch/notes files, workspace & workflow tooling (a helper
+  script, a Makefile target, a small harness), a pre-staged revert. It **proposes** anything
+  bigger and waits: changing product code, anything outward/irreversible (commit, push,
+  deploy, delete, PR), an expensive swarm, a guarded path. Its own changes land
+  **uncommitted**, named in the dividend, for you to keep or toss.
+- **No padding — silence beats filler.** Not a quota. Nothing high-value to add? It adds
+  nothing. One sharp dividend beats five limp ones.
+- **Bounded, labeled, separated.** Proportionate to the slack; conjecture tagged as
+  conjecture; the dividend in its own marked block *after* the answer, so it's skippable at
+  a glance.
+
+Dormant on anything that already fills the turn (a feature, a debugging dive, a migration).
+`/auto-rick off` puts the cycles back in Rick's pocket.
 
 ---
 
