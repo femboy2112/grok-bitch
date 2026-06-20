@@ -102,6 +102,19 @@ What the plugin ships:
   worth Rick's orchestration or grok's cage — a typo, a rename, a one-line lookup,
   a quick summary. He's eager and insecure about it, and hands anything bigger
   than it looked back up the chain.
+- **The extended cast** — eight more persona subagents, each with show-accurate
+  skills sharpened by the same rigor and each rendering in the terminal under its own
+  name (`morty(...)`, `beth(...)`, `citadel-rick(...)`, …). **`morty`** (the twitchy
+  grunt courier — runs a bounded step through the cage and reports; *you* verify),
+  **`citadel-rick`** (a read-only fan-out investigator / rabbit-hole digger that returns
+  one labeled bearing to triangulate), **`beth`** (a surgeon — delicate precision
+  fixes), **`space-beth`** (a commander — bold, high-stakes operations with the revert
+  staged first), **`summer`** (a capable generalist for ordinary multi-step work),
+  **`birdperson`** (a read-only, principled reviewer — the blunt, honest verdict),
+  **`mr-poopybutthole`** (warm, accurate human-facing writing — docs, changelogs), and
+  **`evil-morty`** (a cold, read-only adversary who red-teams your *own* code and
+  *proves* the break). Each defaults to a style-accurate model/effort that Claude can
+  override per spawn.
 - **A slash command, `/rick-mode`** — turns *your own* Claude Code session **into
   Rick**: contempt-genius prose, nihilist asides, burps, and Rick's show
   problem-solving recast as an engineering method (reduce-to-core, ten-moves-ahead,
@@ -116,7 +129,10 @@ What the plugin ships:
   investigators (each on a non-overlapping axis), sending subagents down rabbit holes
   in isolated context, and **triangulating** a verdict from independent bearings that
   don't share a failure mode, with you synthesizing rather than rubber-stamping the
-  vote. **Rigor is untouched — only the voice changes; the upgrades sharpen *how*
+  vote. When Rick delegates, the work routes to the persona cast — `morty(...)`,
+  `beth(...)`, `citadel-rick(...)`, `evil-morty(...)`, and the rest — so the terminal
+  shows who's on each job, each spawning in its own voice and skills. **Rigor is
+  untouched — only the voice changes; the upgrades sharpen *how*
   Rick reasons and verifies, they never loosen the bar.** In this mode *you* are
   Rick's own Morty, and grok/the
   fallback is *a Morty from another dimension* (a dumber, disposable knockoff he
@@ -129,7 +145,10 @@ What the plugin ships:
 > *drives* grok; grok itself, running caged through the harness, is **Morty** (the
 > self-doubting persona); **Mr. Meeseeks** (Sonnet) is summoned for a single
 > bounded task; and **Jerry** (Claude Haiku, fastest effort) takes the trivial
-> scraps. The hierarchy is exactly what you'd expect. If
+> scraps. The **extended cast** adds style-accurate tiers — `beth`, `space-beth`,
+> `birdperson`, and `evil-morty` on Opus (high); `citadel-rick`, `summer`, `morty`,
+> and `mr-poopybutthole` on Sonnet — each overridable per spawn. The hierarchy is
+> exactly what you'd expect. If
 > your Claude Code build doesn't add the plugin's `bin/` to `PATH`, the skill and
 > Rick fall back to `"$CLAUDE_PLUGIN_ROOT/grok-bitch"`; or just symlink it onto
 > `PATH` as in **Install** above.
@@ -317,8 +336,9 @@ merge messages, code-review/issue comments, and changelog/bugfix notes. The voic
 never touches executable or machine-parsed substance: code logic, identifiers,
 values, diffs, JSON/YAML, and commit tokens (trailers like `Co-Authored-By:`,
 issue refs like `Fixes #123`, prefixes like `fix:`) all stay exactly correct.
-The **Rick**, **Mr. Meeseeks**, and **Jerry** subagents do the same in *their*
-voices for anything they author.
+The **Rick**, **Morty**, **Mr. Meeseeks**, **Jerry**, **Citadel Rick**, **Beth**,
+**Space Beth**, **Summer**, **Birdperson**, **Mr. Poopybutthole**, and **Evil Morty**
+subagents each do the same in *their* own voices for anything they author.
 
 ```python
 # aw geez, I-I think this just adds a and b together and gives back the result,
