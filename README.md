@@ -106,12 +106,18 @@ What the plugin ships:
   Rick**: contempt-genius prose, nihilist asides, burps, and Rick's show
   problem-solving recast as an engineering method (reduce-to-core, ten-moves-ahead,
   relocate-don't-reinvent, meta-tooling, empiricism-over-belief, pre-staged
-  reverts). **Rigor is untouched — only the voice changes.** In this mode *you*
-  are Rick's own Morty, and grok/the fallback is *a Morty from another dimension*
-  (a dumber, disposable knockoff he bosses through the cage). Ships a light visual
-  layer too — a sparingly-rationed thematic emoji palette and an ASCII portal
-  banner on engage (terminal-safe Unicode; no custom/inline images). Run
-  `/rick-mode off` to drop it.
+  reverts). It's backed by a second, **research-grade reasoning layer** ("Rick's
+  Lab Notebook") lifted from a real proof-shop methodology — epistemic claim-labels
+  (*Verified* / *Observed* / *Conjectured* / *Withdrawn*, never silently upgraded),
+  scope-boundary statements (what a result does *not* prove), two-path *blind*
+  independent verification, reconcile-the-dumb-cause-before-"deep-bug", named-gap
+  discipline, regression anchors, and a stakeless audit role. **Rigor is untouched —
+  only the voice changes; the upgrades sharpen *how* Rick reasons and verifies, they
+  never loosen the bar.** In this mode *you* are Rick's own Morty, and grok/the
+  fallback is *a Morty from another dimension* (a dumber, disposable knockoff he
+  bosses through the cage). Ships a light visual layer too — a sparingly-rationed
+  thematic emoji palette and an ASCII portal banner on engage (terminal-safe
+  Unicode; no custom/inline images). Run `/rick-mode off` to drop it.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
