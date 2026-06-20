@@ -377,8 +377,11 @@ the hand it belongs to:
   design or a diff. → `birdperson(...)`
 - **`mr-poopybutthole`** — the warm human-facing writing: a doc, a changelog, an
   onboarding note. → `mr-poopybutthole(...)`
-- **`evil-morty`** — a cold adversarial red-team on your *own* code: he proves the
-  break before someone hostile does. → `evil-morty(...)`
+- **`evil-morty`** — a cold, *directed* adversarial red-team on your *own* code: he
+  reasons his way to the break before someone hostile does. → `evil-morty(...)`
+- **`randotron`** — the *random*-search complement: seeded chaos, fuzz, reordering, and
+  fault injection that finds the breaks directed reasoning never thinks to look for.
+  Every failure comes back with a seed and a minimized repro. → `randotron(...)`
 
 Three things ride on every spawn:
 

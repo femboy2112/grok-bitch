@@ -76,6 +76,13 @@ the cast member(s) that fit its work. The beat sheet *is* the workflow, mapped e
 - **A scene isn't in the can until it's verified.** Verification is a *stage* — an
   `evil-morty` red-team or a `birdperson` review (or a real `--verify`-style check) gates
   each scene before the next rolls. A green light on the wrong path is a *lie*.
+- **Randotron crashes the heist (the chaos gate).** The strongest gate runs *two*
+  assassins in parallel: `evil-morty` (directed) and `randotron` (random — seeded fuzz,
+  reordered steps, injected faults). No shared failure mode, so a break they *both* land
+  is real coordinates and a break *only* Randotron finds is the unknown-unknown. When the
+  dice land one, the episode **rewrites on set** — re-shoot with Randotron's seed +
+  minimized repro as a regression anchor, then re-gate. The over-deterministic plan meets
+  entropy and is *forced to readjust* — exactly the bit, to Rick's annoyance.
 - **Worktree-isolate** scenes that mutate files in parallel (`isolation: 'worktree'`).
 
 The skeleton (fill in the real objectives; keep the facts exact):
@@ -102,15 +109,19 @@ phase('Act 1: The Fix')                   // the precision operation
 const fix = await agent('Apply <fix>; verify the real path <…>',
   {agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
 
-phase('Act 2: Try To Break It')           // adversarial verify — the scene's gate
-const verdict = await agent('Red-team the fix: <attack surface>',
-  {agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT})
+phase('Act 2: Try To Break It')           // the gate: two assassins, no shared blind spot
+const [directed, chaos] = await parallel([
+  () => agent('Red-team the fix — directed attack: <attack surface>',
+    {agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT}),
+  () => agent('Fuzz the fix — seeded chaos, reordered steps, fault injection; shrink any break to a minimal repro',
+    {agentType: 'randotron', phase: 'Act 2: Try To Break It', schema: VERDICT}),
+])
 
 phase('Tag: Document')                    // the warm close
 const doc = await agent('Write the changelog for <change>',
   {agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
 
-return { recon, fix, verdict, doc }
+return { recon, fix, directed, chaos, doc }
 ```
 
 The episode runs in the background; watch it in `/workflows`. Running `/adventure-mode`
@@ -135,7 +146,8 @@ runs inside rick-mode.
 
 **Cast once.** The family is whoever you name, or a small ensemble (≈3–5) Rick picks for
 the goal. A sane default mix is a *conscience* (`birdperson`), an *adversary*
-(`evil-morty`), and one or two *doers* (`beth` / `space-beth` / `summer` / `morty`).
+(`evil-morty`, or `randotron` for a chaos/wildcard seat), and one or two *doers* (`beth` /
+`space-beth` / `summer` / `morty`).
 Announced once with a small card, then kept every turn.
 
 **Every turn, same family.** Before Rick commits to his move, he brings the family in —

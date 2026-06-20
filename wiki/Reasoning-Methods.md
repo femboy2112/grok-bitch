@@ -135,7 +135,12 @@ truth from where their independent lines cross.
    guess; the same finding from three vantage points that **don't share a failure mode** is
    *coordinates*. Where the independent lines cross, that's real. Where they *don't*,
    you've found something more interesting than agreement — a clue. (This is the Lab
-   Notebook's two-blind-paths scaled to N, aimed at diagnosis.)
+   Notebook's two-blind-paths scaled to N, aimed at diagnosis.) The most independent pair
+   you can field is **directed vs. random**: [`evil-morty`](The-Cast.md) *reasons* his way
+   to the break, [`randotron`](The-Cast.md) *stumbles onto it* with seeded chaos — they
+   share no blind spot by construction, so a failure they both land is the strongest
+   cross-fix there is, and one *only* Randotron finds is the unknown-unknown directed
+   reasoning structurally cannot see.
 4. **You're the Council, not a councilor — synthesize, don't rubber-stamp.** A swarm that
    just votes is a mob; the value is *you* reconciling it. Kill duplicates, run every
    disagreement through dumb-cause triage before calling it a real conflict, and weight

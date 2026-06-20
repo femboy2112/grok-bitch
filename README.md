@@ -19,7 +19,7 @@ is paint. The rigor underneath is surgical and enforced.
 | | Layer | What it is | Deep dive |
 |---|-------|-----------|-----------|
 | 🧪 | **The cage** | `grok-bitch`, a stdlib-only Python CLI that runs grok (or an Opus fallback) under an OS sandbox, guard+revert, resource caps, and a verify gate — returning a structured JSON verdict | [The Safety Cage](wiki/The-Safety-Cage.md) |
-| 🎭 | **The cast** | 11 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
+| 🎭 | **The cast** | 12 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty, Randotron — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
 | 🛸 | **The modes** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn) | [Session Modes](wiki/Session-Modes.md) |
 | 🔬 | **The method** | Rick's Algorithms + the research-grade *Lab Notebook* + Citadel triangulation — how Rick reasons and certifies | [Reasoning Methods](wiki/Reasoning-Methods.md) |
 
@@ -416,7 +416,7 @@ The full manual lives in [`wiki/`](wiki/Home.md):
 
 - **[The Safety Cage](wiki/The-Safety-Cage.md)** — the 6-layer containment model,
   guard+revert, the Opus fallback, exit codes.
-- **[The Cast](wiki/The-Cast.md)** — all 11 persona subagents: roles, model tiers, tools,
+- **[The Cast](wiki/The-Cast.md)** — all 12 persona subagents: roles, model tiers, tools,
   skills, and how each renders in the terminal.
 - **[Session Modes](wiki/Session-Modes.md)** — `/rick-mode`, `/adventure-mode`,
   `/family-mode`.

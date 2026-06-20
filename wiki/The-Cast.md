@@ -2,7 +2,7 @@
 
 ← [Wiki Home](Home.md)
 
-grok-bitch ships **11 persona subagents**. Each is a genuine engineering role — not a
+grok-bitch ships **12 persona subagents**. Each is a genuine engineering role — not a
 skin on the same generic worker — with its own job, its own [show-accurate
 skills](#the-skills), its own safety posture, and a **style-accurate model tier** that
 Claude can override per spawn. When [Rick](Session-Modes.md#rick-mode) delegates, the
@@ -42,11 +42,13 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 | **`birdperson`** | Birdperson — principled comrade | A design / diff / decision to **review**; renders a blunt, honest verdict | `opus` · high | **read-only** | `birdperson(…)` |
 | **`mr-poopybutthole`** | Mr. Poopybutthole — warm friend | The human-facing writing: a doc, a changelog, release notes, onboarding | `sonnet` · low | edits (docs) | `mr-poopybutthole(…)` |
 | **`evil-morty`** | Evil Morty — cold adversary | Your **own** code/claim/plan to red-team; he *proves* the break | `opus` · high | **read-only** | `evil-morty(…)` |
+| **`randotron`** | Randotron — seeded chaos | Your **own** code/plan to stress with random fuzz, reordering, and fault injection until it survives entropy — or breaks | `sonnet` · medium | **read-only** | `randotron(…)` |
 
 > **Model tiers, at a glance.** Opus/high for the heavy and the high-stakes (`rick`,
 > `beth`, `space-beth`, `birdperson`, `evil-morty`) and for the deep read-only dig
 > (`citadel-rick`, on `sonnet`/high). Sonnet for the capable mid-tier (`morty`,
-> `mr-meeseeks`, `summer`). The cheap-fast Haiku for `jerry`. The docs hand
+> `mr-meeseeks`, `summer`, and the prolific-but-cheap chaos engine `randotron`, on
+> `sonnet`/medium). The cheap-fast Haiku for `jerry`. The docs hand
 > (`mr-poopybutthole`) runs sonnet/low. **Each default is a starting point** — override
 > the model on the spawn (or model *and* effort inside a [Workflow](Session-Modes.md))
 > when a job runs heavier or lighter than the character.
@@ -57,9 +59,11 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 
 Safety is baked into each agent, not bolted on by the caller:
 
-- **Read-only** (cannot edit anything): `citadel-rick`, `birdperson`, `evil-morty`.
-  Tools limited to `Read, Grep, Glob, Bash` (citadel-rick also gets `WebFetch`,
-  `WebSearch`). They investigate, review, and red-team; the caller decides and acts.
+- **Read-only** (cannot edit anything): `citadel-rick`, `birdperson`, `evil-morty`,
+  `randotron`. Tools limited to `Read, Grep, Glob, Bash` (citadel-rick also gets
+  `WebFetch`, `WebSearch`). They investigate, review, red-team, and fuzz; the caller
+  decides and acts. `randotron`'s *destructive* chaos (fault injection, state
+  corruption) runs in the [cage](The-Safety-Cage.md) or a worktree, never the live tree.
 - **Drive the cage, don't edit directly**: `rick` and `morty`. They run mechanical work
   *through* the [grok-bitch cage](The-Safety-Cage.md) (via `Bash`), where guard+revert
   and the verify gate apply — they don't hold `Edit`/`Write` themselves.
@@ -99,6 +103,10 @@ Each agent carries a small, show-accurate skill set, sharpened with the project'
   warmth.*
 - **`evil-morty`** — *map the attack surface · construct the breaking case · prove, never
   posture — only real weaknesses.*
+- **`randotron`** — *seeded chaos (random discovery, deterministic replay) · shrink to the
+  minimal break · perturb the assumptions, not just the inputs · stop on budget and say
+  what you never reached.* The random-search complement to `evil-morty`'s directed
+  attack — no priors, so no blind spots.
 - **`mr-meeseeks`** — *single-minded completion · whatever it takes · verify then poof.*
 - **`jerry`** — *fast on the trivial · exact on the one little thing · know the pay grade
   and hand it up.*

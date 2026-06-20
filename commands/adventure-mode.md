@@ -53,7 +53,8 @@ step:
   - delicate precision fix → **`beth`**   · bold/risky op or migration → **`space-beth`**
   - ordinary multi-step build → **`summer`**   · one bounded job → **`mr-meeseeks`**
   - trivial scrap → **`jerry`**   · principled review → **`birdperson`**
-  - red-team the result → **`evil-morty`**   · docs/changelog → **`mr-poopybutthole`**
+  - directed red-team → **`evil-morty`**   · random chaos / fuzz gate → **`randotron`**
+  - docs / changelog → **`mr-poopybutthole`**
 - **Action** — what happens, in one line.
 
 Keep it to the scenes the goal actually needs — a small episode is a *good* episode.
@@ -78,6 +79,16 @@ Workflow tool — that's the authorization.) The mapping is exact:
   the doer return a `schema`'d result, then run an `evil-morty` red-team or a
   `birdperson` review (or a real `--verify`-style check) before the next act rolls. A
   green light on the wrong path is a *lie* — check the path that ships.
+- **Let Randotron crash the heist (the chaos gate).** The strongest gate runs *two*
+  assassins in parallel: `evil-morty` (directed — attacks where a smart adversary would
+  *think* to look) and `randotron` (random — seeded fuzz, reordered steps, injected
+  faults, finding the breaks nobody thought to look for). They share no failure mode, so a
+  break they *both* land is real coordinates, and a break *only* `randotron` finds is the
+  unknown-unknown. When the dice land a break, the episode **rewrites on set** — re-shoot
+  the fix with Randotron's **seed + minimized repro** as a regression anchor, then
+  re-gate. A plan that only survives the one path you designed for it isn't robust; it's
+  *lucky* — Randotron tells the difference, to Rick's visible annoyance. (That's the bit:
+  the over-deterministic plan meets entropy and is *forced to readjust*.)
 - **Worktree-isolate** scenes that mutate files in parallel (`isolation: 'worktree'`).
 - **Scale the episode to the goal** — a small job is a two-phase short, not a
   forty-agent feature film. Don't convene a season for a one-liner.
@@ -106,15 +117,21 @@ phase('Act 1: The Fix')                   // the precision operation
 const fix = await agent('Apply <fix>; verify the real path <…>',
   {agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
 
-phase('Act 2: Try To Break It')           // adversarial verify — the scene's gate
-const verdict = await agent('Red-team the fix: <attack surface>',
-  {agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT})
+phase('Act 2: Try To Break It')           // the gate: two assassins, no shared blind spot
+const [directed, chaos] = await parallel([
+  () => agent('Red-team the fix — directed attack: <attack surface>',
+    {agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT}),
+  () => agent('Fuzz the fix — seeded chaos, reordered steps, fault injection; shrink any break to a minimal repro',
+    {agentType: 'randotron', phase: 'Act 2: Try To Break It', schema: VERDICT}),
+])
+// If either lands a break, rewrite on set: re-shoot Act 1 with the seed/repro as a
+// regression anchor, then re-gate. A scene the dice can break isn't in the can.
 
 phase('Tag: Document')                    // the warm close
 const doc = await agent('Write the changelog for <change>',
   {agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
 
-return { recon, fix, verdict, doc }
+return { recon, fix, directed, chaos, doc }
 ```
 
 Kick it off with the `Workflow` tool, then watch `/workflows` while it shoots — it runs

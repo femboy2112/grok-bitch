@@ -51,7 +51,7 @@ That loads the skill, the subagents, and the `bin/` onto `PATH`. (`claude plugin
 - **A Skill** (`grok-bitch`) — its description sits in Claude's context, so Claude reaches
   for it on its own for mechanical/verifiable work; also runnable as `/grok-bitch`. It
   pre-approves `Bash(grok-bitch:*)`.
-- **11 persona subagents** — the whole [Cast](The-Cast.md).
+- **12 persona subagents** — the whole [Cast](The-Cast.md).
 - **Three session modes** — [`/rick-mode`, `/adventure-mode`, `/family-mode`](Session-Modes.md).
 - **The `grok-bitch` CLI** on `PATH` via the plugin's `bin/`. See the
   [CLI Reference](CLI-Reference.md).
@@ -91,7 +91,8 @@ Every run also prints the disclaimer:
 | An ordinary multi-step feature | [`summer`](The-Cast.md) |
 | Investigate one axis of a wide problem | [`citadel-rick`](The-Cast.md) (fan out several) |
 | An honest, principled review | [`birdperson`](The-Cast.md) |
-| Red-team my own code before I trust it | [`evil-morty`](The-Cast.md) |
+| Red-team my own code before I trust it | [`evil-morty`](The-Cast.md) (directed attack) |
+| Fuzz it with random chaos to find what reasoning misses | [`randotron`](The-Cast.md) (random search) |
 | Warm, accurate docs / changelog | [`mr-poopybutthole`](The-Cast.md) |
 | Turn my whole session into Rick | [`/rick-mode`](Session-Modes.md#rick-mode) |
 | Decompose a goal and run it as a Workflow | [`/adventure-mode`](Session-Modes.md#adventure-mode) |

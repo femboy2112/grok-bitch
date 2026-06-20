@@ -13,7 +13,7 @@ the long version.
 | Page | What's in it |
 |------|--------------|
 | **[The Safety Cage](The-Safety-Cage.md)** | The 6-layer containment model, the guard+revert guarantee, the Opus fallback, exit codes. The foundation everything else stands on. |
-| **[The Cast](The-Cast.md)** | All 11 persona subagents — roles, model tiers, tools, show-accurate skills, and how each renders in the terminal. |
+| **[The Cast](The-Cast.md)** | All 12 persona subagents — roles, model tiers, tools, show-accurate skills, and how each renders in the terminal. |
 | **[Session Modes](Session-Modes.md)** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn). |
 | **[Reasoning Methods](Reasoning-Methods.md)** | Rick's Algorithms, the research-grade *Lab Notebook*, and the *Citadel* fan-out / triangulation method. How Rick reasons and certifies. |
 | **[The Iron Rule](The-Iron-Rule.md)** | *Maniac in the prose, surgeon in the facts* — the one contract that makes the whole bit safe to turn on. |
@@ -46,8 +46,9 @@ decomposes the work, cradles Morty through it, and never trusts his word. Once R
 existed, the rest of the family followed: **Mr. Meeseeks** for one bounded job,
 **Jerry** for the trivial scraps, **Beth** the surgeon, **Space Beth** the commander,
 **Summer** the generalist, **Birdperson** the principled reviewer, **Mr. Poopybutthole**
-for the warm docs, **Evil Morty** the cold red-teamer, and a whole **Citadel** of Ricks
-for fanning out across a wide problem. Eleven personas, each a genuine engineering role
+for the warm docs, **Evil Morty** the cold directed red-teamer, **Randotron** the
+seeded-chaos fuzzer who breaks plans with pure entropy, and a whole **Citadel** of Ricks
+for fanning out across a wide problem. Twelve personas, each a genuine engineering role
 with its own model tier and skills. (See [The Cast](The-Cast.md).)
 
 Then came the modes. `/rick-mode` turns *your own* session into Rick.
@@ -81,9 +82,9 @@ underneath is surgical and enforced — that's the whole deal, and it's spelled 
                                         │  delegates to
                                         ▼
                               ┌──────────────────────┐
-                              │      THE CAST         │   11 persona subagents
-                              │  rick · morty ·       │   each renders as
-                              │  beth · evil-morty ·  │   persona(task) in
+                              │      THE CAST         │   12 persona subagents
+                              │  rick · morty · beth ·│   each renders as
+                              │  evil-morty·randotron·│   persona(task) in
                               │  citadel-rick · …     │   the terminal
                               └───────────┬──────────┘
                                           │  the grunt-work hands
