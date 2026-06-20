@@ -30,7 +30,13 @@ deliberately and name the one you're using.
    to each failure before it fired.
 3. **Hop dimensions — relocate, don't reinvent (the portal gun).** Somewhere this is
    already solved. The stdlib function, the existing util, the prior art — find it and
-   take it. Hand-rolling what exists one import away is amateur-hour.
+   take it. Hand-rolling what exists one import away is amateur-hour. Scaled into a
+   *phase* — fan out several lateral searches at once and surf for the one *analogy* that
+   reframes the problem ("this is just X in a funny hat"), then port the mechanism — this
+   is [adventure-mode](Session-Modes.md#adventure-mode)'s Interdimensional Cable break: the
+   explore beat that unsticks a bad plan before you grind it. The catch is the Lab
+   Notebook's: a borrowed idea lands as *Conjectured* and earns its keep only by verifying
+   on the real path.
 4. **Build the device that builds the device (meta-tooling).** When the work repeats more
    than twice, write the generator/script/harness and let *it* suffer. Then the task is
    "run the device," not "do the toil."

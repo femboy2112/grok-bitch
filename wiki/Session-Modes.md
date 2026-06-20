@@ -73,6 +73,14 @@ the cast member(s) that fit its work. The beat sheet *is* the workflow, mapped e
   their skills.
 - **Recon fans out** with `parallel(...)` (orthogonal `citadel-rick` bearings);
   **dependent scenes pipeline** with `pipeline(...)`; the default is `pipeline`.
+- **Interdimensional Cable — the inspiration break (when stuck).** When recon says the
+  *obvious* approach is bad, the crew cuts away and surfs channels: a `citadel-rick`
+  fan-out for prior art and analogies — "this is just X in a funny hat" — porting the
+  *mechanism*, not the surface. It's Algorithm #3 (relocate, don't reinvent) run as a
+  phase, and the generative twin of Randotron's chaos gate: controlled randomness aimed at
+  the *solution* instead of the *fix*. An idea off the cable is **Conjectured** — cite the
+  channel and verify it on the real path before the fix ships. Time-boxed; a break, not a
+  vacation.
 - **A scene isn't in the can until it's verified.** Verification is a *stage* — an
   `evil-morty` red-team or a `birdperson` review (or a real `--verify`-style check) gates
   each scene before the next rolls. A green light on the wrong path is a *lie*.
@@ -93,6 +101,7 @@ export const meta = {
   description: '<the goal, one honest line>',
   phases: [
     { title: 'Cold Open: Recon' },
+    { title: 'Interdimensional Cable: Channel-Surf for the Idea' },
     { title: 'Act 1: The Fix' },
     { title: 'Act 2: Try To Break It' },
     { title: 'Tag: Document' },
@@ -105,8 +114,19 @@ const recon = await parallel([
   () => agent('Recon <axis B> …', {agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
 ])
 
+phase('Interdimensional Cable: Channel-Surf for the Idea')   // the break — explore, only when recon says the obvious path is weak
+const stuck = recon.some(r => r.deadEnd)                      // recon flagged the planned approach as bad, not just hard
+const idea = stuck ? await parallel([
+  () => agent('Channel-surf for a better approach to <problem> — scan prior art / the stdlib / an analogous domain; return the analogy and the mechanism to port, tagged Conjectured',
+    {agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
+  () => agent('Channel-surf a different dimension for the same — another source, blind to the first',
+    {agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
+]) : null
+// Rick synthesizes: take the reframe that's actually better and fold it into Act 1.
+// An idea off the cable is Conjectured — cite the channel; it verifies on the real path before it ships.
+
 phase('Act 1: The Fix')                   // the precision operation
-const fix = await agent('Apply <fix>; verify the real path <…>',
+const fix = await agent('Apply <fix — folding in any idea from the cable>; verify the real path <…>',
   {agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
 
 phase('Act 2: Try To Break It')           // the gate: two assassins, no shared blind spot
@@ -121,7 +141,7 @@ phase('Tag: Document')                    // the warm close
 const doc = await agent('Write the changelog for <change>',
   {agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
 
-return { recon, fix, directed, chaos, doc }
+return { recon, idea, fix, directed, chaos, doc }
 ```
 
 The episode runs in the background; watch it in `/workflows`. Running `/adventure-mode`

@@ -54,6 +54,7 @@ step:
   - ordinary multi-step build → **`summer`**   · one bounded job → **`mr-meeseeks`**
   - trivial scrap → **`jerry`**   · principled review → **`birdperson`**
   - directed red-team → **`evil-morty`**   · random chaos / fuzz gate → **`randotron`**
+  - stuck? channel-surf prior art for the idea → **`citadel-rick`** (the Interdimensional Cable break)
   - docs / changelog → **`mr-poopybutthole`**
 - **Action** — what happens, in one line.
 
@@ -75,6 +76,19 @@ Workflow tool — that's the authorization.) The mapping is exact:
   with their skills. Use `label` for the scene-and-character line.
 - **Recon fans out** with `parallel(...)` (orthogonal `citadel-rick` bearings);
   **dependent scenes pipeline** with `pipeline(...)`; the default is `pipeline`.
+- **Cut to Interdimensional Cable when you're stuck (the inspiration break).** When recon
+  comes back saying the obvious approach is *bad* — not just hard — don't grind it. **Cut
+  away and surf channels:** fan out lateral searches (`citadel-rick`) aimed not at *this*
+  bug but at *who already solved this shape* — the stdlib, prior art in the repo, an
+  analogous domain. The payload isn't the channel, it's the **analogy** ("oh, this is just
+  a rate limiter / a topological sort in a funny hat"), so you port the *mechanism*, not
+  the surface. That's Algorithm #3 (relocate, don't reinvent) run as a *phase* — a
+  deliberate explore beat against the exploit grind, the thing that unsticks a bad plan
+  before you waste an act on it. **It's a break, not a vacation:** time-box it, and an idea
+  off the cable is **Conjectured** — cite the channel and verify it on the real path before
+  Act 1 ships it. (Randotron's generative twin: same controlled randomness, but thrown at
+  the *solution* to surface the approach nobody thought to look for, where Randotron throws
+  it at the *fix* to surface the break nobody thought to look for.)
 - **A scene isn't in the can until it's verified.** Make verification a *stage*: have
   the doer return a `schema`'d result, then run an `evil-morty` red-team or a
   `birdperson` review (or a real `--verify`-style check) before the next act rolls. A
@@ -101,6 +115,7 @@ export const meta = {
   description: '<the goal, one honest line>',
   phases: [
     { title: 'Cold Open: Recon' },
+    { title: 'Interdimensional Cable: Channel-Surf for the Idea' },
     { title: 'Act 1: The Fix' },
     { title: 'Act 2: Try To Break It' },
     { title: 'Tag: Document' },
@@ -113,8 +128,19 @@ const recon = await parallel([
   () => agent('Recon <axis B> …', {agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
 ])
 
+phase('Interdimensional Cable: Channel-Surf for the Idea')   // the break — explore, only when recon says the obvious path is weak
+const stuck = recon.some(r => r.deadEnd)                      // recon flagged the planned approach as bad, not just hard
+const idea = stuck ? await parallel([
+  () => agent('Channel-surf for a better approach to <problem> — scan prior art / the stdlib / an analogous domain; return the analogy and the mechanism to port, tagged Conjectured',
+    {agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
+  () => agent('Channel-surf a different dimension for the same — another source, blind to the first',
+    {agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
+]) : null
+// Rick synthesizes: take the reframe that's actually better and fold it into Act 1.
+// An idea off the cable is Conjectured — cite the channel; it verifies on the real path before it ships.
+
 phase('Act 1: The Fix')                   // the precision operation
-const fix = await agent('Apply <fix>; verify the real path <…>',
+const fix = await agent('Apply <fix — folding in any idea from the cable>; verify the real path <…>',
   {agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
 
 phase('Act 2: Try To Break It')           // the gate: two assassins, no shared blind spot
@@ -131,7 +157,7 @@ phase('Tag: Document')                    // the warm close
 const doc = await agent('Write the changelog for <change>',
   {agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
 
-return { recon, fix, directed, chaos, doc }
+return { recon, idea, fix, directed, chaos, doc }
 ```
 
 Kick it off with the `Workflow` tool, then watch `/workflows` while it shoots — it runs
