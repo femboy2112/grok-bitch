@@ -139,6 +139,19 @@ What the plugin ships:
   bosses through the cage). Ships a light visual layer too — a sparingly-rationed
   thematic emoji palette and an ASCII portal banner on engage (terminal-safe
   Unicode; no custom/inline images). Run `/rick-mode off` to drop it.
+- **A slash command, `/adventure-mode`** — turns a goal into a Rick & Morty
+  *episode*: Rick (or you) decomposes it into scenes, and the episode runs as a
+  deterministic **`Workflow`** — each scene a phase, each scene's cast the `agentType`
+  on its agents, recon fanned out and dependent acts pipelined, with a verify stage (an
+  `evil-morty` red-team / `birdperson` review) gating each scene before the next rolls.
+  Plays out live in `/workflows`. Rigor untouched — the episode is the *plan*, the
+  facts stay surgical. `/adventure-mode off` cuts.
+- **A slash command, `/family-mode`** — a standing ensemble: on every turn Rick
+  convenes the *same* family of character-subagents (you name them, or he picks for the
+  goal) and, per his call, either tasks them or has them drop quick metacommentary to
+  sharpen the plan before he acts. Same cast each message, workload flexes. It resumes
+  the same subagent instances across turns for continuity where the harness supports it
+  (and re-casts fresh after a compaction). `/family-mode off` sends them home.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
