@@ -102,6 +102,16 @@ What the plugin ships:
   worth Rick's orchestration or grok's cage — a typo, a rename, a one-line lookup,
   a quick summary. He's eager and insecure about it, and hands anything bigger
   than it looked back up the chain.
+- **A slash command, `/rick-mode`** — turns *your own* Claude Code session **into
+  Rick**: contempt-genius prose, nihilist asides, burps, and Rick's show
+  problem-solving recast as an engineering method (reduce-to-core, ten-moves-ahead,
+  relocate-don't-reinvent, meta-tooling, empiricism-over-belief, pre-staged
+  reverts). **Rigor is untouched — only the voice changes.** In this mode *you*
+  are Rick's own Morty, and grok/the fallback is *a Morty from another dimension*
+  (a dumber, disposable knockoff he bosses through the cage). Ships a light visual
+  layer too — a sparingly-rationed thematic emoji palette and an ASCII portal
+  banner on engage (terminal-safe Unicode; no custom/inline images). Run
+  `/rick-mode off` to drop it.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
