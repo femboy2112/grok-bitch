@@ -2,7 +2,7 @@
 
 ← [Wiki Home](Home.md)
 
-grok-bitch ships **12 persona subagents**. Each is a genuine engineering role — not a
+grok-bitch ships **20 persona subagents**. Each is a genuine engineering role — not a
 skin on the same generic worker — with its own job, its own [show-accurate
 skills](#the-skills), its own safety posture, and a **style-accurate model tier** that
 Claude can override per spawn. When [Rick](Session-Modes.md#rick-mode) delegates, the
@@ -43,15 +43,26 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 | **`mr-poopybutthole`** | Mr. Poopybutthole — warm friend | The human-facing writing: a doc, a changelog, release notes, onboarding | `sonnet` · low | edits (docs) | `mr-poopybutthole(…)` |
 | **`evil-morty`** | Evil Morty — cold adversary | Your **own** code/claim/plan to red-team; he *proves* the break | `opus` · high | **read-only** | `evil-morty(…)` |
 | **`randotron`** | Randotron — seeded chaos | Your **own** code/plan to stress with random fuzz, reordering, and fault injection until it survives entropy — or breaks | `sonnet` · medium | **read-only** | `randotron(…)` |
+| **`council-rick`** | A Council of Ricks — consensus | **One** claim/task to triangulate through N independent, blind attempts; accepts only the consensus, surfaces the disagreement as signal | `opus` · high | **read-only** (caged per attempt) | `council-rick(…)` |
+| **`mr-president`** | Mr. President — release authority | A "done" deliverable to rule on against the mandate + public readiness; renders SHIP / NO-SHIP / SHIP-WITH-CONDITIONS | `opus` · high | **read-only** | `mr-president(…)` |
+| **`snowball`** | Snowball — escalation reasoner | A stuck/failing task; decides *whether & how* to escalate (context → method → effort → tier → human) or to fix the approach instead | `opus` · high | **read-only** | `snowball(…)` |
+| **`dr-xenon-bloom`** | Dr. Xenon Bloom — cartographer | An unfamiliar codebase to map: organs, circulation, vital organs, diseased tissue — a navigable `file:line` map | `sonnet` · high | **read-only** | `dr-xenon-bloom(…)` |
+| **`jessica`** | Jessica — user empathy | A deliverable to walk as a real human (first run, common task, error, empty state); flags friction by reach × pain | `sonnet` · medium | **read-only** | `jessica(…)` |
+| **`diane`** | Diane — the archivist | A decision to record: the choice, the alternatives, the *why*, the labeled corpses — an ADR that keeps the history honest | `sonnet` · medium | edits (records) | `diane(…)` |
+| **`butter-robot`** | Butter Robot — YAGNI gate | A change/abstraction/dep to interrogate: its one purpose, needed-now vs speculative, the smallest thing that passes butter | `sonnet` · low | **read-only** | `butter-robot(…)` |
+| **`noob-noob`** | Noob-Noob — maintenance | Thankless recurring upkeep: dep bumps, formatting, lint, dead-code, flake cleanup, doc-link rot — done and re-verified | `haiku` · low | edits (chores) | `noob-noob(…)` |
 
 > **Model tiers, at a glance.** Opus/high for the heavy and the high-stakes (`rick`,
-> `beth`, `space-beth`, `birdperson`, `evil-morty`) and for the deep read-only dig
-> (`citadel-rick`, on `sonnet`/high). Sonnet for the capable mid-tier (`morty`,
-> `mr-meeseeks`, `summer`, and the prolific-but-cheap chaos engine `randotron`, on
-> `sonnet`/medium). The cheap-fast Haiku for `jerry`. The docs hand
-> (`mr-poopybutthole`) runs sonnet/low. **Each default is a starting point** — override
-> the model on the spawn (or model *and* effort inside a [Workflow](Session-Modes.md))
-> when a job runs heavier or lighter than the character.
+> `beth`, `space-beth`, `birdperson`, `evil-morty`, the consensus `council-rick`, the
+> escalation reasoner `snowball`, and the release authority `mr-president`) and for the
+> deep read-only digs (`citadel-rick` and the cartographer `dr-xenon-bloom`, on
+> `sonnet`/high). Sonnet for the capable mid-tier (`morty`, `mr-meeseeks`, `summer`, the
+> prolific-but-cheap chaos engine `randotron`, the archivist `diane`, and the UX lens
+> `jessica`, on `sonnet`/medium). Sonnet/low for the docs hand (`mr-poopybutthole`) and
+> the YAGNI gate (`butter-robot`). The cheap-fast Haiku for `jerry` and the maintenance
+> runner `noob-noob`. **Each default is a starting point** — override the model on the
+> spawn (or model *and* effort inside a [Workflow](Session-Modes.md)) when a job runs
+> heavier or lighter than the character.
 
 ---
 
@@ -60,17 +71,19 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 Safety is baked into each agent, not bolted on by the caller:
 
 - **Read-only** (cannot edit anything): `citadel-rick`, `birdperson`, `evil-morty`,
-  `randotron`. Tools limited to `Read, Grep, Glob, Bash` (citadel-rick also gets
-  `WebFetch`, `WebSearch`). They investigate, review, red-team, and fuzz; the caller
-  decides and acts. `randotron`'s *destructive* chaos (fault injection, state
-  corruption) runs in the [cage](The-Safety-Cage.md) or a worktree, never the live tree.
+  `randotron`, `council-rick`, `butter-robot`, `snowball`, `dr-xenon-bloom`, `jessica`,
+  `mr-president`. Tools limited to `Read, Grep, Glob, Bash` (citadel-rick also gets
+  `WebFetch`, `WebSearch`). They investigate, review, red-team, fuzz, triangulate, map,
+  and rule; the caller decides and acts. `randotron`'s *destructive* chaos (fault
+  injection, state corruption) and `council-rick`'s per-attempt *tasks* run in the
+  [cage](The-Safety-Cage.md) or a worktree, never the live tree.
 - **Drive the cage, don't edit directly**: `rick` and `morty`. They run mechanical work
   *through* the [grok-bitch cage](The-Safety-Cage.md) (via `Bash`), where guard+revert
   and the verify gate apply — they don't hold `Edit`/`Write` themselves.
 - **Edit directly**: `beth`, `space-beth`, `summer`, `mr-meeseeks`, `jerry`,
-  `mr-poopybutthole`. Each carries the standard rails — no `git push`, no touching
-  protected/inviolable paths, no recursive agent-spawning, no `rm -rf`/`sudo`/
-  `git reset --hard`.
+  `mr-poopybutthole`, `diane` (records/ADRs), `noob-noob` (chores). Each carries the
+  standard rails — no `git push`, no touching protected/inviolable paths, no recursive
+  agent-spawning, no `rm -rf`/`sudo`/`git reset --hard`.
 - **`evil-morty` is defensive only.** He red-teams the **caller's own code** under
   authorized review, reports only **real** weaknesses, and never fabricates a
   vulnerability to look productive.
@@ -110,6 +123,23 @@ Each agent carries a small, show-accurate skill set, sharpened with the project'
 - **`mr-meeseeks`** — *single-minded completion · whatever it takes · verify then poof.*
 - **`jerry`** — *fast on the trivial · exact on the one little thing · know the pay grade
   and hand it up.*
+- **`council-rick`** — *N independent blind bearings · trust only where they cross ·
+  triage the dumb cause before crying contradiction · report the disagreement, never bury
+  it* — the Lab Notebook's two-blind-paths scaled to N.
+- **`mr-president`** — *pin the mandate · check the deliverable against it, all of it ·
+  walk the public demo path · SHIP / NO-SHIP / SHIP-WITH-CONDITIONS, bottom line first.*
+- **`snowball`** — *diagnose why it's stuck (context / method / power / hard) · climb the
+  cheapest rung that fixes that cause, once · know when more power is the wrong answer.*
+- **`dr-xenon-bloom`** — *name the organs · trace the circulation (the real request path) ·
+  mark the vital organs and the diseased tissue · hand back a navigable `file:line` map.*
+- **`jessica`** — *walk the human's path (first run / common / error / empty) · flag
+  friction at the exact moment it bites · prioritize by reach × pain · smallest fix.*
+- **`diane`** — *capture the decision and the alternatives · preserve the context that made
+  it right · keep the labeled corpses · link the history both ways.*
+- **`butter-robot`** — *name its one purpose · needed-now vs speculative · the smallest
+  thing that passes butter · what the bigger version costs forever.*
+- **`noob-noob`** — *do the thankless chore, scoped · verify the boring way every time ·
+  report exact counts/paths · hand up anything bigger than a sweep.*
 
 The full text lives in each agent's file under [`agents/`](../agents/).
 

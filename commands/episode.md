@@ -57,9 +57,10 @@ nothing else. Then drop the card **once**:
 
 Map the *real arc of the session* onto the beats — every beat is a thing that happened:
 
-- **Previously on… (only if it applies).** If the session continues earlier work or rode
-  in on a compaction summary, open with a two-line "previously on" so the cut stands
-  alone. Skip it on a fresh thread.
+- **Previously on… (only if it applies).** If the session continues earlier work, rode in
+  on a compaction summary, **or the project's memory holds prior "season canon"** (see
+  below), open with a two-line "previously on" so the cut stands alone — pull the real
+  prior beats from memory, never invented ones. Skip it on a genuinely fresh thread.
 - **Cold Open — the inciting request.** What the user actually asked for, in the frame.
   *They're the Morty who set the plot in motion* — credit the ask straight, then play the
   hook: the *real* problem, stated under the flavor.
@@ -107,6 +108,25 @@ TAG — where it really stands
 
   CREDITS: beth(…) landed the fix · evil-morty(…) tried to break it and couldn't · …
 ```
+
+## The season so far (canon ↔ memory)
+
+A single `/episode` cuts *this* session. A **season** is the thread across sessions — and
+the project's [memory](../wiki/Reasoning-Methods.md) is where it lives. Two directions, and
+the read-only one is the default:
+
+- **Read canon for the "previously on" (automatic, read-only).** Before the cold open,
+  check memory for prior season beats — a `season-canon` entry, relevant `project`
+  memories, the recurring bug you've been fighting, a darling you killed three sessions
+  ago. If real canon is there, the "previously on" pulls *those* beats (labeled, exact); if
+  not, you skip it. You never invent a callback — a remembered beat is real or it's not on
+  screen.
+- **Write a canon beat (only on explicit ask — the one allowed write).** `/episode` is
+  read-only on the *code*. But if the user wants a season arc, **offer** to drop one honest
+  line into memory — a `season-canon` entry recording what this episode actually shipped
+  (Verified), what's still open (UNVERIFIED), and any running thread — so the *next* episode
+  has a true "previously on." One line, labeled, exact; never a flattering rewrite. Default
+  is to offer, not to write; you write canon only when they say yes.
 
 ## After the screening
 

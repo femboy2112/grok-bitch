@@ -51,7 +51,7 @@ That loads the skill, the subagents, and the `bin/` onto `PATH`. (`claude plugin
 - **A Skill** (`grok-bitch`) — its description sits in Claude's context, so Claude reaches
   for it on its own for mechanical/verifiable work; also runnable as `/grok-bitch`. It
   pre-approves `Bash(grok-bitch:*)`.
-- **12 persona subagents** — the whole [Cast](The-Cast.md).
+- **20 persona subagents** — the whole [Cast](The-Cast.md).
 - **Three session modes** — [`/rick-mode`, `/adventure-mode`, `/family-mode`](Session-Modes.md).
 - **The `grok-bitch` CLI** on `PATH` via the plugin's `bin/`. See the
   [CLI Reference](CLI-Reference.md).
@@ -101,6 +101,14 @@ Every run also prints the disclaimer:
 | An honest, principled review | [`birdperson`](The-Cast.md) |
 | Red-team my own code before I trust it | [`evil-morty`](The-Cast.md) (directed attack) |
 | Fuzz it with random chaos to find what reasoning misses | [`randotron`](The-Cast.md) (random search) |
+| Trust a result only once independent attempts agree | [`council-rick`](The-Cast.md) / [`/council`](Session-Modes.md#council) |
+| Rule whether a "done" thing is actually fit to ship | [`mr-president`](The-Cast.md) (acceptance + release authority) |
+| A task's stuck — escalate smartly, or fix the approach | [`snowball`](The-Cast.md) |
+| Map an unfamiliar codebase before touching it | [`dr-xenon-bloom`](The-Cast.md) (architecture cartographer) |
+| Review the real human / UX experience | [`jessica`](The-Cast.md) |
+| Record *why* a decision was made (an ADR) | [`diane`](The-Cast.md) |
+| Challenge whether a thing should be built at all | [`butter-robot`](The-Cast.md) (YAGNI gate) |
+| Thankless recurring maintenance / chores | [`noob-noob`](The-Cast.md) |
 | Warm, accurate docs / changelog | [`mr-poopybutthole`](The-Cast.md) |
 | Turn my whole session into Rick | [`/rick-mode`](Session-Modes.md#rick-mode) |
 | Decompose a goal and run it as a Workflow | [`/adventure-mode`](Session-Modes.md#adventure-mode) |
@@ -108,6 +116,9 @@ Every run also prints the disclaimer:
 | Recap the whole session as an episode / honest worklog | [`/episode`](Session-Modes.md#episode) |
 | Let Rick invest spare capacity on small asks (anticipate, scout, pre-draft) | [`/auto-rick`](Session-Modes.md#auto-rick) |
 | Have Rick commit/comment under a separate git identity | [`/rick-git`](#can-rick-commit-under-a-separate-git-account-from-mine) |
+| Rehearse a risky change before applying it | [`/cronenberg`](Session-Modes.md#cronenberg) |
+| Solve it with minimal footprint (no new deps) | [`/pickle-rick`](Session-Modes.md#pickle-rick) |
+| Prototype / A-B two approaches in a sandbox | [`/blips-n-chitz`](Session-Modes.md#blips-n-chitz) |
 
 ---
 

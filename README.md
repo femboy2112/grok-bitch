@@ -19,7 +19,7 @@ is paint. The rigor underneath is surgical and enforced.
 | | Layer | What it is | Deep dive |
 |---|-------|-----------|-----------|
 | 🧪 | **The cage** | `grok-bitch`, a stdlib-only Python CLI that runs grok (or an Opus fallback) under an OS sandbox, guard+revert, resource caps, and a verify gate — returning a structured JSON verdict | [The Safety Cage](wiki/The-Safety-Cage.md) |
-| 🎭 | **The cast** | 12 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty, Randotron — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
+| 🎭 | **The cast** | 20 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty, Randotron, Council Rick, Mr. President, Snowball, Dr. Xenon Bloom, Jessica, Diane, Butter Robot, Noob-Noob — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
 | 🛸 | **The modes** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn) | [Session Modes](wiki/Session-Modes.md) |
 | 🔬 | **The method** | Rick's Algorithms + the research-grade *Lab Notebook* + Citadel triangulation — how Rick reasons and certifies | [Reasoning Methods](wiki/Reasoning-Methods.md) |
 
@@ -125,7 +125,7 @@ What the plugin ships:
   worth Rick's orchestration or grok's cage — a typo, a rename, a one-line lookup,
   a quick summary. He's eager and insecure about it, and hands anything bigger
   than it looked back up the chain.
-- **The extended cast** — eight more persona subagents, each with show-accurate
+- **The extended cast** — sixteen more persona subagents, each with show-accurate
   skills sharpened by the same rigor and each rendering in the terminal under its own
   name (`morty(...)`, `beth(...)`, `citadel-rick(...)`, …). **`morty`** (the twitchy
   grunt courier — runs a bounded step through the cage and reports; *you* verify),
@@ -136,7 +136,15 @@ What the plugin ships:
   **`birdperson`** (a read-only, principled reviewer — the blunt, honest verdict),
   **`mr-poopybutthole`** (warm, accurate human-facing writing — docs, changelogs), and
   **`evil-morty`** (a cold, read-only adversary who red-teams your *own* code and
-  *proves* the break). Each defaults to a style-accurate model/effort that Claude can
+  *proves* the break) — plus eight new hands: **`council-rick`** (N-way **consensus**:
+  triangulates a claim through independent blind attempts), **`mr-president`** (the
+  **release authority** — SHIP / NO-SHIP acceptance review against the mandate),
+  **`snowball`** (the **escalation reasoner** — decides whether & how to escalate a stuck
+  task), **`dr-xenon-bloom`** (the **architecture cartographer** — a navigable map of an
+  unfamiliar codebase), **`jessica`** (the **user-empathy / UX** reviewer), **`diane`**
+  (the **archivist** — decision records that keep the *why*), **`butter-robot`** (the
+  **YAGNI / anti-over-engineering** gate), and **`noob-noob`** (the **thankless-chores**
+  maintenance runner). Each defaults to a style-accurate model/effort that Claude can
   override per spawn.
 - **A slash command, `/rick-mode`** — turns *your own* Claude Code session **into
   Rick**: contempt-genius prose, nihilist asides, burps, and Rick's show
@@ -207,6 +215,19 @@ What the plugin ships:
   never leaves disk or lands in memory; `/rick-git status` shows the identity,
   `/rick-git forget` drops it. The standing rule holds on top: no `git push` without your
   say-so.
+- **A slash command, `/council`** — convenes a *Council of Ricks*: runs a claim or task
+  through N independent, blind attempts and accepts only the **consensus**, surfacing
+  disagreement as signal. Tools the Lab Notebook's two-blind-paths / Citadel triangulation
+  as a one-shot gate — read-only for a claim, caged per-attempt for a task.
+- **A slash command, `/cronenberg`** — *rehearse the disaster*: applies a risky change (a
+  migration, mass rename, dep bump) in a **throwaway git worktree**, runs the suite,
+  inspects the blast radius, and reports GO / NO-GO — the real tree is never touched.
+- **A slash command, `/pickle-rick`** — a minimal-footprint **constraint mode** (toggle):
+  reach for the stdlib / an existing util before a new dependency; ship the smallest
+  *correct, verified* diff. Minimal never means sloppy or reckless. `/pickle-rick off`.
+- **A slash command, `/blips-n-chitz`** — a disposable **sandbox** to prototype an idea or
+  A/B two approaches and crown a winner with evidence; nothing touches the real tree, and
+  the winner is *proposed*, never auto-applied. (The most experimental of the set.)
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
@@ -214,8 +235,10 @@ What the plugin ships:
 > self-doubting persona); **Mr. Meeseeks** (Sonnet) is summoned for a single
 > bounded task; and **Jerry** (Claude Haiku, fastest effort) takes the trivial
 > scraps. The **extended cast** adds style-accurate tiers — `beth`, `space-beth`,
-> `birdperson`, and `evil-morty` on Opus (high); `citadel-rick`, `summer`, `morty`,
-> and `mr-poopybutthole` on Sonnet — each overridable per spawn. The hierarchy is
+> `birdperson`, `evil-morty`, `council-rick`, `snowball`, and `mr-president` on Opus
+> (high); `citadel-rick`, `dr-xenon-bloom`, `summer`, `morty`, `diane`, `jessica`,
+> `mr-poopybutthole`, and `butter-robot` on Sonnet; `noob-noob` on Haiku — each
+> overridable per spawn. The hierarchy is
 > exactly what you'd expect. If
 > your Claude Code build doesn't add the plugin's `bin/` to `PATH`, the skill and
 > Rick fall back to `"$CLAUDE_PLUGIN_ROOT/grok-bitch"`; or just symlink it onto
@@ -456,7 +479,7 @@ The full manual lives in [`wiki/`](wiki/Home.md):
 
 - **[The Safety Cage](wiki/The-Safety-Cage.md)** — the 6-layer containment model,
   guard+revert, the Opus fallback, exit codes.
-- **[The Cast](wiki/The-Cast.md)** — all 12 persona subagents: roles, model tiers, tools,
+- **[The Cast](wiki/The-Cast.md)** — all 20 persona subagents: roles, model tiers, tools,
   skills, and how each renders in the terminal.
 - **[Session Modes](wiki/Session-Modes.md)** — `/rick-mode`, `/adventure-mode`,
   `/family-mode`.

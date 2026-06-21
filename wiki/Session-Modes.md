@@ -17,7 +17,10 @@ Plus two commands that *aren't* standalone modes: [`/episode`](#episode) — a *
 render of the session so far that exits (nothing to engage, nothing to turn off) — and
 [`/auto-rick`](#auto-rick) — an **augmentation of rick-mode** that, while it's on and your
 ask is small, spends Rick's spare turn budget on anticipatory work (`/auto-rick off` drops
-it).
+it). And four more one-shot / utility commands round things out:
+[`/council`](#council) (a consensus gate), [`/cronenberg`](#cronenberg) (rehearse a risky
+change in a throwaway dimension), [`/pickle-rick`](#pickle-rick) (a minimal-footprint
+constraint mode), and [`/blips-n-chitz`](#blips-n-chitz) (a disposable prototyping sandbox).
 
 ---
 
@@ -281,6 +284,60 @@ revert the next risky move needs; a Lab-Notebook sweep for anything still **UNVE
 
 Dormant on anything that already fills the turn (a feature, a debugging dive, a migration).
 `/auto-rick off` puts the cycles back in Rick's pocket.
+
+---
+
+## /council
+
+> *Nobody trusts one Rick, M-Morty — not even a Rick.*
+
+`/council <claim or task> [xN]` convenes a **Council of Ricks**: it runs the claim or task
+through **N independent, blind attempts** (different method / tool / data / seed / angle),
+keeps them blind to each other, and accepts **only the consensus** — surfacing disagreement
+as the most interesting signal in the room rather than averaging it away. It's the
+[Lab Notebook](Reasoning-Methods.md)'s *two blind paths* and the *Citadel*'s triangulation
+pulled into one gate. Read-only for a claim; each attempt runs caged for a task. Defaults to
+3 bearings; scale to the stakes (don't convene a council for a thermostat). Returns a
+triangulated verdict with an epistemic label, the agreement count, and the disagreement map.
+
+## /cronenberg
+
+> *We gotta rehearse the disaster, Morty — in a dimension we can throw away.*
+
+`/cronenberg <risky change>` **rehearses a disaster before you live it.** It applies the
+risky change (a migration, a mass rename, a dependency bump, a schema change) inside a
+**throwaway git worktree**, runs the full suite, and inspects the blast radius — what
+mutated, what broke, how big the diff really is — then reports a clear **GO / NO-GO** with
+the evidence. The real working tree is *never* touched; on GO it hands the rehearsed diff
+back for you to apply by hand. It extends Operation Phoenix from *pre-staging the revert* to
+pre-staging the whole catastrophe. (A passing rehearsal is *Observed*, not a guarantee the
+real apply is identical — that boundary is named in the verdict.)
+
+## /pickle-rick
+
+> *I turned the solution into a pickle, M-Morty.*
+
+`/pickle-rick` is a **toggle** constraint mode: while engaged, every solution is held to a
+**minimal-footprint** bar — reach for the stdlib / an existing util / prior art before a new
+dependency, ship the smallest *correct, fully-verified* diff, and justify any new surface
+area out loud or drop it. The flex is doing more with less, not less work. Two hard
+guardrails keep the pickle from rotting: **minimal ≠ sloppy** (never a skipped test to
+shrink a diff) and **minimal ≠ reckless** (if the task genuinely needs a real dependency —
+crypto, a hard parser — say so loudly and use it; don't hand-roll a worse version of a
+solved thing). Pairs naturally with the `butter-robot` agent. `/pickle-rick off` lets it
+sprawl again.
+
+## /blips-n-chitz
+
+> *Take a break, Morty — let's go to Blips & Chitz and try the thing for real.*
+
+`/blips-n-chitz <prototype or approaches>` is a disposable **arcade**: it stands up a
+throwaway sandbox (a scratch dir or worktree), builds a prototype there — or, for an A/B,
+**both** approaches side by side — measures them on real criteria (works / perf / ergonomics
+/ lines / complexity), and crowns a winner *with the evidence*. Nothing touches the real
+tree; the sandbox is torn down after; the winner is **proposed**, never auto-applied. The
+most experimental command in the set — an arcade win is **Conjectured** until it's verified
+in the real context.
 
 ---
 

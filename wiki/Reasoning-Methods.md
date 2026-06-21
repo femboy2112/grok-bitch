@@ -157,6 +157,18 @@ truth from where their independent lines cross.
    triangulation). For a one-file lookup, a council of Ricks is just a fat token bill — do
    it yourself, in one thread, and move on.
 
+> **The Council, packaged.** Items 1–5 are the *discipline*;
+> [`/council`](Session-Modes.md#council) and the [`council-rick`](The-Cast.md) agent are
+> that discipline as a one-button gate — fan out N blind bearings, triangulate, accept only
+> the consensus, and report the disagreement rather than averaging it away. Reach for it
+> when you'd otherwise hand-run two-blind-paths by feel.
+>
+> **The labeled verdict (a cast-wide convention).** Every member ends a load-bearing claim
+> with its epistemic grade — *Verified* / *Observed* / *Conjectured* / **UNVERIFIED** — and
+> its boundary, so a verdict is skimmable at a glance instead of buried in prose: a
+> `council-rick` consensus, a `mr-president` SHIP, a `beth` fix all carry the label. The
+> grade travels *with* the claim; an unlabeled "done" is an incomplete report.
+
 ---
 
 ## See also
