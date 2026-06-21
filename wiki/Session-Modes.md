@@ -113,7 +113,11 @@ the cast member(s) that fit its work. The beat sheet *is* the workflow, mapped e
   `/workflows` as the episode plays.
 - **Each scene's cast → the `agentType`** on that scene's `agent()` calls — `beth`,
   `morty`, `citadel-rick`, `evil-morty`, and the rest run *as themselves*, in voice, with
-  their skills.
+  their skills. **Every `agent()` call also gets a `label` in the form
+  `'<Character> - <goal>'`** — the character's show name, then its job (`Evil Morty -
+  Red-team the fix`), so `/workflows` reads as the cast at work, not numbered agents. The
+  `agentType` is the kebab registry id (`evil-morty`); the `label` is the display name
+  (`Evil Morty`).
 - **Recon fans out** with `parallel(...)` (orthogonal `citadel-rick` bearings);
   **dependent scenes pipeline** with `pipeline(...)`; the default is `pipeline`.
 - **Interdimensional Cable — the inspiration break (when stuck).** When recon says the
@@ -153,36 +157,36 @@ export const meta = {
 
 phase('Cold Open: Recon')                 // orthogonal bearings, in parallel
 const recon = await parallel([
-  () => agent('Recon <axis A> …', {agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
-  () => agent('Recon <axis B> …', {agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
+  () => agent('Recon <axis A> …', {label: 'Citadel Rick - Recon <axis A>', agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
+  () => agent('Recon <axis B> …', {label: 'Citadel Rick - Recon <axis B>', agentType: 'citadel-rick', phase: 'Cold Open: Recon', schema: FINDING}),
 ])
 
 phase('Interdimensional Cable: Channel-Surf for the Idea')   // the break — explore, only when recon says the obvious path is weak
 const stuck = recon.some(r => r.deadEnd)                      // recon flagged the planned approach as bad, not just hard
 const idea = stuck ? await parallel([
   () => agent('Channel-surf for a better approach to <problem> — scan prior art / the stdlib / an analogous domain; return the analogy and the mechanism to port, tagged Conjectured',
-    {agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
+    {label: 'Citadel Rick - Channel-surf for the idea', agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
   () => agent('Channel-surf a different dimension for the same — another source, blind to the first',
-    {agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
+    {label: 'Citadel Rick - Channel-surf another dimension', agentType: 'citadel-rick', phase: 'Interdimensional Cable: Channel-Surf for the Idea', schema: IDEA}),
 ]) : null
 // Rick synthesizes: take the reframe that's actually better and fold it into Act 1.
 // An idea off the cable is Conjectured — cite the channel; it verifies on the real path before it ships.
 
 phase('Act 1: The Fix')                   // the precision operation
 const fix = await agent('Apply <fix — folding in any idea from the cable>; verify the real path <…>',
-  {agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
+  {label: 'Beth - Apply the fix', agentType: 'beth', phase: 'Act 1: The Fix', schema: RESULT, isolation: 'worktree'})
 
 phase('Act 2: Try To Break It')           // the gate: two assassins, no shared blind spot
 const [directed, chaos] = await parallel([
   () => agent('Red-team the fix — directed attack: <attack surface>',
-    {agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT}),
+    {label: 'Evil Morty - Red-team the fix', agentType: 'evil-morty', phase: 'Act 2: Try To Break It', schema: VERDICT}),
   () => agent('Fuzz the fix — seeded chaos, reordered steps, fault injection; shrink any break to a minimal repro',
-    {agentType: 'randotron', phase: 'Act 2: Try To Break It', schema: VERDICT}),
+    {label: 'Randotron - Fuzz the fix', agentType: 'randotron', phase: 'Act 2: Try To Break It', schema: VERDICT}),
 ])
 
 phase('Tag: Document')                    // the warm close
 const doc = await agent('Write the changelog for <change>',
-  {agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
+  {label: 'Mr. Poopybutthole - Write the changelog', agentType: 'mr-poopybutthole', phase: 'Tag: Document'})
 
 return { recon, idea, fix, directed, chaos, doc }
 ```
