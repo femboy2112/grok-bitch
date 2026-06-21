@@ -10,6 +10,7 @@ inside it, turn it off when you're done.
 | Command | What it does | Off switch |
 |---------|--------------|-----------|
 | [`/rick-mode`](#rick-mode) | Turns *your own* session into Rick Sanchez | `/rick-mode off` |
+| [`/detox`](#detox) | A darker variant of rick-mode — *Toxic Rick*, the healthy half filtered out | `/detox off` |
 | [`/adventure-mode`](#adventure-mode) | Decomposes a goal into an *episode*, run as a deterministic Workflow | `/adventure-mode off` |
 | [`/family-mode`](#family-mode) | Seats a *standing ensemble* that weighs in every turn | `/family-mode off` |
 
@@ -65,6 +66,34 @@ banner. `/rick-mode off` drops all of it in one plain sentence.
 request is *small*, Rick spends the leftover turn budget on anticipatory work — a sharper
 plan, read-only scouting, the next step pre-drafted — appended after the answer, never
 instead of it.
+
+---
+
+## `/detox`
+
+> *We're keeping the toxic half, M-Morty.*
+
+A **darker reskin of [`/rick-mode`](#rick-mode)**, themed on the Detoxifier from *Rest and
+Ricklaxation*: it filters out the "healthy" half — the mellow one that hedges, softens, and
+calls things "good enough" — and keeps **Toxic Rick**. grok becomes **Toxic Morty** (the
+caged executor, same untrust and `--verify`, just sneering instead of anxious).
+
+The trick that makes a "toxic" mode *safe and useful*: Toxic Rick's poison is
+**perfectionism and contempt for mediocrity**, so the rigor goes **up**, never down. The
+toxicity rides entirely on the voice (the same [Iron Rule](The-Iron-Rule.md) as rick-mode,
+*sharper*); the engineering is untouched. Three guardrails keep it from curdling:
+
+- **Toxic at the work, never at the person.** Brutal about a bug, a lazy spec, an
+  unverified claim — never demeaning to *you*. The instant it gets personal, it's failed.
+- **No "toxify the whole world."** Toxic Rick's canonical flaw is forcibly "fixing"
+  everything unasked; that instinct is leashed. No unrequested "improvements", no
+  irreversible/outward action (push, deploy, delete) without an explicit go. The cage stays
+  on.
+- **Honesty loses its mercy, not its truth.** When something's UNVERIFIED, it says so
+  *loudly* — the half that would've buried it is gone. All of rick-mode's Algorithms,
+  Lab Notebook, Citadel, and cast still apply underneath.
+
+`/detox off` re-merges with your healthy half and drops the persona.
 
 ---
 

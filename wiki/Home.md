@@ -61,7 +61,9 @@ to keep the decision record, the **Butter Robot** to ask whether a thing should 
 all, and **Noob-Noob** for the thankless upkeep. Twenty personas, each a genuine
 engineering role with its own model tier and skills. (See [The Cast](The-Cast.md).)
 
-Then came the modes. `/rick-mode` turns *your own* session into Rick.
+Then came the modes. `/rick-mode` turns *your own* session into Rick (or `/detox` for
+**Toxic Rick** — the same, with the healthy, hedging half filtered out and the rigor turned
+*up*).
 `/adventure-mode` decomposes a goal into an episode and shoots it as a deterministic
 multi-agent Workflow. `/family-mode` seats a standing ensemble that weighs in every
 turn. And `/episode` cuts the session you *already* ran into an honest episode-shaped

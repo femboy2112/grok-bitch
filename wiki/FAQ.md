@@ -111,6 +111,7 @@ Every run also prints the disclaimer:
 | Thankless recurring maintenance / chores | [`noob-noob`](The-Cast.md) |
 | Warm, accurate docs / changelog | [`mr-poopybutthole`](The-Cast.md) |
 | Turn my whole session into Rick | [`/rick-mode`](Session-Modes.md#rick-mode) |
+| Same, but darker — *Toxic Rick*, no hedging, higher bar | [`/detox`](Session-Modes.md#detox) |
 | Decompose a goal and run it as a Workflow | [`/adventure-mode`](Session-Modes.md#adventure-mode) |
 | A standing crew that weighs in every turn | [`/family-mode`](Session-Modes.md#family-mode) |
 | Recap the whole session as an episode / honest worklog | [`/episode`](Session-Modes.md#episode) |

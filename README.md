@@ -170,6 +170,13 @@ What the plugin ships:
   bosses through the cage). Ships a light visual layer too — a sparingly-rationed
   thematic emoji palette and an ASCII portal banner on engage (terminal-safe
   Unicode; no custom/inline images). Run `/rick-mode off` to drop it.
+- **A slash command, `/detox`** — a darker reskin of `/rick-mode`, themed on the
+  Detoxifier (*Rest and Ricklaxation*): it filters out the "healthy" half (the one that
+  hedges and calls things "good enough") and keeps **Toxic Rick**, with grok as **Toxic
+  Morty**. The trick that makes a "toxic" mode safe: the toxin is *perfectionism*, so the
+  rigor goes **up** — the same Iron Rule, sharper; the venom lives only in the voice.
+  Guarded so it's toxic at the *work*, never the person, and can't "toxify the whole world"
+  (no unasked fixes, no irreversible/outward action without a go). `/detox off` re-merges.
 - **A slash command, `/adventure-mode`** — turns a goal into a Rick & Morty
   *episode*: Rick (or you) decomposes it into scenes, and the episode runs as a
   deterministic **`Workflow`** — each scene a phase, each scene's cast the `agentType`
