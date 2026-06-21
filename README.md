@@ -196,6 +196,17 @@ What the plugin ships:
   pushes, deletes, or fans out a swarm; its own changes land uncommitted for you to keep or
   toss), and it stays quiet when there's no slack or nothing worth banking — silence beats
   filler. `/auto-rick off` drops it.
+- **A slash command, `/rick-git`** — gives Rick his *own* git identity without touching
+  yours. `/rick-git <email> [name]` generates an **isolated** SSH key
+  (`~/.ssh/id_ed25519_rick` — never overwriting an existing key) and prints the public key
+  plus copy-paste config (an SSH host-alias block, a zero-touch `GIT_SSH_COMMAND`, a
+  per-repo identity snippet, and an optional isolated `gh` login for comments) for you to
+  apply — it edits no global config on its own. It records the identity to Rick's memory,
+  so from then on **Rick authors commits and comments as that account**, while **major
+  pushes/merges/releases ask first and default to your main account**. The private key
+  never leaves disk or lands in memory; `/rick-git status` shows the identity,
+  `/rick-git forget` drops it. The standing rule holds on top: no `git push` without your
+  say-so.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that

@@ -107,6 +107,7 @@ Every run also prints the disclaimer:
 | A standing crew that weighs in every turn | [`/family-mode`](Session-Modes.md#family-mode) |
 | Recap the whole session as an episode / honest worklog | [`/episode`](Session-Modes.md#episode) |
 | Let Rick invest spare capacity on small asks (anticipate, scout, pre-draft) | [`/auto-rick`](Session-Modes.md#auto-rick) |
+| Have Rick commit/comment under a separate git identity | [`/rick-git`](#can-rick-commit-under-a-separate-git-account-from-mine) |
 
 ---
 
@@ -125,6 +126,21 @@ No — by design. The rigor is untouched (often sharper); only the voice changes
 guarantee is [The Iron Rule](The-Iron-Rule.md): *maniac in the prose, surgeon in the
 facts.* If a persona ever softens a check, guesses a number, or claims an unverified
 "done," it has failed the mode.
+
+---
+
+### Can Rick commit under a separate git account from mine?
+
+Yes — that's [`/rick-git`](Session-Modes.md). Run `/rick-git <rick-email> [name]` and it
+generates an **isolated** SSH key (a brand-new `~/.ssh/id_ed25519_rick`, never touching your
+existing key or global config) and prints the public key + copy-paste config (an SSH
+host-alias block, a zero-touch `GIT_SSH_COMMAND`, a per-repo identity snippet, and an
+optional isolated `gh` login so even *comments* attribute to Rick) for you to apply. It
+saves the identity to Rick's memory, so afterward Rick authors **commits and comments** as
+that account, while **major pushes/merges/releases ask first and default to your main
+account**. The private key never leaves your machine or lands in memory. `/rick-git status`
+shows the current identity; `/rick-git forget` drops it (it won't delete your key). The
+standing no-push-without-your-say-so rule still applies on top.
 
 ---
 
