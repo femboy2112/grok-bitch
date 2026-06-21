@@ -41,6 +41,8 @@ grok-bitch run "<one precise, self-contained task>" --dir <workspace> [--profile
 13 timeout            → task too big / stuck. Narrow it or raise --timeout.
 15 resource_exceeded  → grok tried to OOM/flood the box; killed. Narrow the task.
 14 preflight_error    → your args/env are wrong. Read .error.
+16 regression         → a --anchor golden value drifted (even if verify passed). A silent regression.
+17 no_consensus       → --consensus attempts disagreed; tree left clean. Don't trust any single one.
 ```
 
 ```bash

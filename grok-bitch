@@ -69,6 +69,8 @@ EXIT_GROK_ERROR = 12       # grok itself errored (nonzero / error object)
 EXIT_TIMEOUT = 13          # grok exceeded the wall-clock budget (killed)
 EXIT_PREFLIGHT = 14        # bad args / environment / policy refusal
 EXIT_RESOURCE = 15         # grok's tree exceeded the memory/output cap (killed)
+EXIT_REGRESSION = 16       # a regression anchor (golden value) drifted post-run
+EXIT_NO_CONSENSUS = 17     # --consensus attempts did not converge on an answer
 EXIT_INTERRUPTED = 130     # SIGINT
 
 VERDICTS = {
@@ -79,6 +81,8 @@ VERDICTS = {
     EXIT_TIMEOUT: "timeout",
     EXIT_PREFLIGHT: "preflight_error",
     EXIT_RESOURCE: "resource_exceeded",
+    EXIT_REGRESSION: "regression",
+    EXIT_NO_CONSENSUS: "no_consensus",
     EXIT_INTERRUPTED: "interrupted",
 }
 
@@ -1010,6 +1014,12 @@ def cmd_run(args):
     if not args.task or not args.task.strip():
         return finish(EXIT_PREFLIGHT, {"error": "empty task; pass a prompt or --task-file"}, args)
 
+    # --- consensus mode: run N independent attempts, accept only what they agree on.
+    #     Purely additive — delegates to an orchestrator that re-runs the normal
+    #     single-attempt cage N times, so the single-run path below is untouched. ---
+    if getattr(args, "consensus", 1) and args.consensus > 1:
+        return cmd_run_consensus(args)
+
     # --- resolve dir & profile ---
     dir_ = Path(args.dir).resolve()
     if not dir_.is_dir():
@@ -1117,6 +1127,11 @@ def cmd_run(args):
     # --- snapshot protected paths BEFORE running ---
     guard.snapshot()
 
+    # --- snapshot regression anchors (golden values that must NOT drift) ---
+    anchor_roots = [(Path(a) if Path(a).is_absolute() else (dir_ / a)).resolve()
+                    for a in (args.anchor or [])]
+    anchor_before = {str(a): _manifest(a) for a in anchor_roots}
+
     # --- run the executor (always followed by guard detection, even on error) ---
     state, gpayload = run_grok(cmd, dir_, args.timeout, limits, run_dir,
                                kind=("claude" if executor == "claude" else "grok"))
@@ -1164,7 +1179,7 @@ def cmd_run(args):
     else:
         result["changes"] = {"note": "not a git workspace; change listing skipped"}
 
-    # verdict precedence: guard > resource > timeout > grok_error > verify > ok
+    # verdict precedence: guard > resource > timeout > grok_error > verify > regression > ok
     code = EXIT_SUCCESS
     if violations:
         code = EXIT_GUARD_VIOLATION
@@ -1182,6 +1197,18 @@ def cmd_run(args):
         elif v.get("state") == "resource":
             code = EXIT_RESOURCE
 
+    # --- regression anchors: a clean run that silently drifted a golden value is a
+    #     regression, even when verify passed — that's the entire point of them ---
+    if anchor_roots:
+        drifted = []
+        for a in anchor_roots:
+            d = _diff_manifest(anchor_before[str(a)], _manifest(a))
+            if d:
+                drifted.append({"path": str(a), "changes": d[:200]})
+        result["anchors"] = {"checked": [str(a) for a in anchor_roots], "drifted": drifted}
+        if drifted and code == EXIT_SUCCESS:
+            code = EXIT_REGRESSION
+
     # --- optional revert-all on any failure ---
     if code != EXIT_SUCCESS and args.revert_all_on_fail:
         _revert_all(dir_)
@@ -1195,6 +1222,131 @@ def _revert_all(dir_: Path):
                    capture_output=True)
     subprocess.run(["git", "-C", str(dir_), "clean", "-fd"],
                    capture_output=True)
+
+
+# ---------------------------------------------------------------------------
+# consensus: run N independent attempts, accept only the agreement
+# ---------------------------------------------------------------------------
+def _child_run_argv(args, self_path):
+    """Reconstruct a single-attempt `run` argv from args (minus consensus/report)."""
+    av = [sys.executable, str(self_path), "run", args.task,
+          "--dir", args.dir, "--profile", args.profile, "--quiet",
+          "--timeout", str(args.timeout), "--verify-timeout", str(args.verify_timeout),
+          "--mem-max", args.mem_max, "--cpu-max", str(args.cpu_max),
+          "--max-output-mb", str(args.max_output_mb), "--model", args.model,
+          "--grok-bin", args.grok_bin, "--fallback-bin", args.fallback_bin,
+          "--fallback-model", args.fallback_model, "--fallback-effort", args.fallback_effort]
+    if args.verify:
+        av += ["--verify", args.verify]
+    if args.effort:
+        av += ["--effort", args.effort]
+    if args.max_turns:
+        av += ["--max-turns", str(args.max_turns)]
+    if args.rules:
+        av += ["--rules", args.rules]
+    if args.no_auto_guard:
+        av += ["--no-auto-guard"]
+    if args.no_resource_limit:
+        av += ["--no-resource-limit"]
+    if args.no_subagents:
+        av += ["--no-subagents"]
+    if args.no_revert:
+        av += ["--no-revert"]
+    if args.no_fallback:
+        av += ["--no-fallback"]
+    for g in args.guard:
+        av += ["--guard", g]
+    for a in (args.anchor or []):
+        av += ["--anchor", a]
+    return av
+
+
+def _attempt_signature(dir_: Path, changes: dict) -> str:
+    """A content-addressed, order-independent signature of an attempt's changes."""
+    parts = []
+    for f in sorted(set((changes.get("created") or []) + (changes.get("modified") or []))):
+        fp = dir_ / f
+        parts.append(f"+{f}:{sha256_file(fp) if fp.is_file() else 'absent'}")
+    for f in sorted(changes.get("deleted") or []):
+        parts.append(f"-{f}")
+    return "\n".join(parts)
+
+
+def cmd_run_consensus(args):
+    """Run the task N times independently; accept only what a strict majority agree on.
+
+    Each attempt runs through the FULL single-run cage (a child `run` invocation),
+    the tree is reverted to clean between attempts, and attempts are grouped by the
+    content signature of their changes. The tree is left CLEAN and the winning
+    attempt's patch is saved for the caller to apply — consensus never auto-applies.
+    """
+    n = int(args.consensus)
+    dir_ = Path(args.dir).resolve()
+    if not dir_.is_dir():
+        return finish(EXIT_PREFLIGHT, {"error": f"workspace dir not found: {dir_}"}, args)
+    before_git = git_porcelain(dir_)
+    if before_git is None:
+        return finish(EXIT_PREFLIGHT,
+                      {"error": "--consensus requires a git workspace (to isolate attempts)"}, args)
+    if before_git.strip():
+        return finish(EXIT_PREFLIGHT,
+                      {"error": "--consensus requires a clean tree; commit or stash first"}, args)
+
+    self_path = Path(__file__).resolve()
+    run_dir = new_run_dir()
+    cdir = run_dir / "consensus"
+    cdir.mkdir(parents=True, exist_ok=True)
+    threshold = n // 2 + 1
+    child_argv = _child_run_argv(args, self_path)
+
+    attempts, by_sig = [], {}
+    for i in range(1, n + 1):
+        proc = subprocess.run(child_argv, capture_output=True, text=True)
+        try:
+            rep = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            rep = {}
+        changes = rep.get("changes") or {}
+        exit_code = rep.get("exit_code", proc.returncode)
+        sig = _attempt_signature(dir_, changes) if exit_code == EXIT_SUCCESS else None
+        short = hashlib.sha256(sig.encode()).hexdigest()[:16] if sig is not None else None
+        patch_path = cdir / f"attempt-{i}.patch"
+        try:
+            diff = subprocess.run(["git", "-C", str(dir_), "diff"],
+                                  capture_output=True, text=True)
+            patch_path.write_text(diff.stdout)
+        except OSError:
+            pass
+        if short is not None:
+            by_sig.setdefault(short, []).append(i)
+        attempts.append({
+            "i": i, "exit_code": exit_code, "verdict": rep.get("verdict", "unknown"),
+            "verify_passed": (rep.get("verify") or {}).get("passed"),
+            "changes": {k: changes.get(k, []) for k in ("created", "modified", "deleted")},
+            "signature": short, "patch": str(patch_path),
+        })
+        _revert_all(dir_)   # independent next attempt from a clean tree
+
+    winner_sig, winner = None, []
+    for s, members in by_sig.items():
+        if len(members) > len(winner):
+            winner_sig, winner = s, members
+    reached = len(winner) >= threshold
+
+    result = {
+        "schema": SCHEMA, "tool_version": VERSION, "task": tail(args.task, 600),
+        "dir": str(dir_), "run_dir": str(run_dir),
+        "consensus": {
+            "n": n, "threshold": threshold, "agreement": len(winner),
+            "reached": reached, "winning_signature": winner_sig,
+            "winning_attempts": winner,
+            "winning_patch": (str(cdir / f"attempt-{winner[0]}.patch") if winner else None),
+            "attempts": attempts,
+        },
+        "changes": {"note": "tree left clean; consensus does not auto-apply — apply the "
+                            "winning patch deliberately"},
+    }
+    return finish(EXIT_SUCCESS if reached else EXIT_NO_CONSENSUS, result, args)
 
 
 def finish(code, result, args):
@@ -1230,7 +1382,8 @@ def _human_summary(r):
     v = r.get("verdict")
     icon = {"success": "OK", "guard_violation": "BLOCKED", "verify_failed": "REJECTED",
             "grok_error": "ERROR", "timeout": "TIMEOUT", "preflight_error": "PREFLIGHT",
-            "resource_exceeded": "OOM-KILLED", "dry_run": "DRY-RUN"}.get(v, "?")
+            "resource_exceeded": "OOM-KILLED", "regression": "REGRESSION",
+            "no_consensus": "NO-CONSENSUS", "dry_run": "DRY-RUN"}.get(v, "?")
     eprint(f"grok-bitch [{icon}] verdict={v} exit={r.get('exit_code')}")
     if r.get("executor") == "claude-fallback":
         fb = r.get("fallback", {})
@@ -1255,6 +1408,15 @@ def _human_summary(r):
     if r.get("verify"):
         eprint(f"  verify: {'passed' if r['verify']['passed'] else 'FAILED'} "
                f"({r['verify']['cmd']})")
+    if r.get("anchors"):
+        an = r["anchors"]
+        eprint(f"  anchors: {len(an.get('checked', []))} checked, "
+               f"{len(an.get('drifted', []))} drifted")
+    if r.get("consensus"):
+        c = r["consensus"]
+        eprint(f"  consensus: {c.get('agreement')}/{c.get('n')} agree "
+               f"(threshold {c.get('threshold')}) -> "
+               f"{'REACHED' if c.get('reached') else 'NO CONSENSUS'}")
     if r.get("run_dir"):
         eprint(f"  report: {r['run_dir']}/report.json")
 
@@ -1437,6 +1599,15 @@ def build_parser():
                    help="Detect guard violations but do NOT auto-revert (still fails).")
     r.add_argument("--revert-all-on-fail", action="store_true",
                    help="On any failure, git-revert ALL changes (requires clean git tree).")
+    r.add_argument("--anchor", action="append", default=[], metavar="PATH",
+                   help="Regression anchor: a path whose content must NOT drift across the "
+                        "run (a golden value). Repeatable. Drift -> exit 16, even if verify "
+                        "passed.")
+    r.add_argument("--consensus", type=int, default=1, metavar="N",
+                   help="Run the task N independent times (reverting between) and accept "
+                        "only the consensus by content signature; N<2 disables. Requires a "
+                        "clean git tree; tree left clean, winning patch saved (never "
+                        "auto-applied).")
     r.add_argument("--dry-run", action="store_true", help="Print the plan; do not run grok.")
     r.add_argument("--report", default=None, help="Write the full JSON report to this path.")
     r.add_argument("--quiet", action="store_true", help="Suppress the human summary on stderr.")

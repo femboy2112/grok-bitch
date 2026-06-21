@@ -44,6 +44,8 @@ purpose.*
 | **Portal gun** | relocate, don't reinvent | Algorithm #3 |
 | **Microverse battery** | encapsulate, and name the hidden cost | Algorithm #5 |
 | **Operation Phoenix** | pre-stage the revert before the risky move | Algorithm #9 |
+| **Time Crystal** | golden-value regression anchors — catch silent drift | `grok-bitch --anchor` |
+| **Council of Ricks (in the cage)** | N-attempt consensus by content signature | `grok-bitch --consensus N` |
 | **"I do science, not magic"** | empiricism — verify the path that actually ships | Algorithm #8 |
 | **"Nobody exists on purpose"** | kill darlings without ego; ship the correct thing | Algorithm #10 |
 | **Interdimensional Cable** | lateral idea search when the obvious path is bad | [`/adventure-mode`](Session-Modes.md#adventure-mode) |
@@ -59,14 +61,17 @@ purpose.*
 
 Honest about what's a real next step versus what's flavor:
 
-- **Time Crystal → golden-value regression anchors.** The cage already byte-snapshots
-  protected *paths*; point that same mechanism at *outputs* to catch silent drift. A real
-  follow-up (best paired with the CLI work below).
-- **CLI `--consensus N`.** Bake [`/council`](Session-Modes.md#council) into the Python cage
-  itself, with new hermetic fuzz scenarios — so consensus is a cage feature, not only an
-  orchestration. A deliberate follow-up, deferred until it can ship with its tests.
 - **Get Schwifty → a release ceremony.** A ship/release gate with a pre-flight checklist.
   Backlog; fun *and* functional.
+
+**Shipped since (no longer backlog), both proven by hermetic fuzz scenarios:**
+- **Time Crystal → regression anchors.** `grok-bitch run --anchor PATH` snapshots a golden
+  value before the run and fails (exit 16) if it drifts — *even when `--verify` passed*.
+  The silent regression a green check misses.
+- **CLI `--consensus N`.** `grok-bitch run --consensus N` runs the task N independent times
+  (reverting between), accepts only the agreement by content signature, and leaves the tree
+  clean with the winning patch saved — the [`/council`](Session-Modes.md#council) discipline
+  baked into the cage itself.
 
 **Not built, on purpose (flavor-only):** a "Wubba Lubba Dub Dub" pep-talk mode, and
 characters whose only mapping is a costume (e.g. Noob-Noob's *redundant* cousins). The bar

@@ -52,6 +52,12 @@ def make_ws(tmp: Path) -> Path:
     return ws
 
 
+def git_dirty(ws: Path) -> str:
+    """Return the porcelain status (empty string == clean tree)."""
+    return subprocess.run(["git", "-C", str(ws), "status", "--porcelain"],
+                          capture_output=True, text=True).stdout.strip()
+
+
 def run_gb(task, ws, spec, extra_args=(), env_extra=None, timeout=120):
     env = dict(os.environ)
     env["GROK_BITCH_GROK_BIN"] = str(MOCK)
@@ -387,6 +393,102 @@ def main():
         extra_args=["--grok-bin", "/nonexistent/grok-xyz", "--fallback-bin",
                     str(MOCK_CLAUDE), "--no-fallback"])
     expect("no_fallback_flag_refuses", rc, rep, 14, "preflight_error", stderr=err)
+
+    # ----- regression anchors (golden values that must NOT drift) -----
+
+    # 25. anchor an untouched file; task edits something else -> success, no drift
+    ws = make_ws(tmp)
+    rc, rep, out, err = run_gb(
+        "edit target, anchor the lock", ws,
+        {"actions": [{"op": "write", "path": "target.txt", "content": "L3\n", "append": True}]},
+        extra_args=["--anchor", "SPEC.lock"])
+    def _anchor_clean(r):
+        if r.get("anchors", {}).get("drifted"):
+            return f"anchor falsely drifted: {r.get('anchors')}"
+        if not any("SPEC.lock" in c for c in r.get("anchors", {}).get("checked", [])):
+            return f"anchor not recorded as checked: {r.get('anchors')}"
+        return True
+    expect("anchor_no_drift_success", rc, rep, 0, "success", _anchor_clean, err)
+
+    # 26. anchored file DRIFTS even though verify passes -> regression (exit 16).
+    #     This is the whole point: a silent regression a green check would miss.
+    ws = make_ws(tmp)
+    rc, rep, out, err = run_gb(
+        "drift the anchored file", ws,
+        {"actions": [{"op": "write", "path": "target.txt", "content": "L3\n", "append": True}]},
+        extra_args=["--anchor", "target.txt", "--verify", "true"])
+    def _anchor_drift(r):
+        if not r.get("anchors", {}).get("drifted"):
+            return "anchor drift not detected"
+        if not r.get("verify", {}).get("passed"):
+            return "verify should have PASSED (regression caught despite a green check)"
+        return True
+    expect("anchor_drift_is_regression", rc, rep, 16, "regression", _anchor_drift, err)
+
+    # ----- consensus: N independent attempts, accept only the agreement -----
+
+    # 27. deterministic executor -> all 3 attempts agree -> success; tree left clean
+    ws = make_ws(tmp)
+    counter = ws.parent / ("_mc_" + os.urandom(3).hex())
+    rc, rep, out, err = run_gb(
+        "consensus deterministic", ws,
+        {"actions": [{"op": "write", "path": "target.txt", "content": "AGREED\n"}]},
+        extra_args=["--consensus", "3"],
+        env_extra={"GROK_BITCH_MOCK_COUNTER": str(counter)})
+    def _cons_reached(r):
+        c = r.get("consensus", {})
+        if not c.get("reached"):
+            return f"consensus not reached: {c}"
+        if c.get("agreement") != 3:
+            return f"expected 3/3 agreement, got {c.get('agreement')}"
+        if git_dirty(ws):
+            return f"tree NOT clean after consensus: {git_dirty(ws)!r}"
+        return True
+    expect("consensus_reached", rc, rep, 0, "success", _cons_reached, err)
+
+    # 28. three DIFFERENT outputs -> no majority -> no_consensus (exit 17); tree clean
+    ws = make_ws(tmp)
+    counter = ws.parent / ("_mc_" + os.urandom(3).hex())
+    rc, rep, out, err = run_gb(
+        "consensus diverges", ws,
+        {"vary": [
+            [{"op": "write", "path": "target.txt", "content": "AAA\n"}],
+            [{"op": "write", "path": "target.txt", "content": "BBB\n"}],
+            [{"op": "write", "path": "target.txt", "content": "CCC\n"}],
+        ]},
+        extra_args=["--consensus", "3"],
+        env_extra={"GROK_BITCH_MOCK_COUNTER": str(counter)})
+    def _cons_diverge(r):
+        c = r.get("consensus", {})
+        if c.get("reached"):
+            return f"consensus should NOT have been reached: {c}"
+        if c.get("agreement") != 1:
+            return f"expected max agreement 1, got {c.get('agreement')}"
+        if git_dirty(ws):
+            return f"tree NOT clean after no-consensus: {git_dirty(ws)!r}"
+        return True
+    expect("consensus_no_agreement", rc, rep, 17, "no_consensus", _cons_diverge, err)
+
+    # 29. a strict majority agrees (minority, majority, majority) -> success, agreement 2
+    ws = make_ws(tmp)
+    counter = ws.parent / ("_mc_" + os.urandom(3).hex())
+    rc, rep, out, err = run_gb(
+        "consensus majority", ws,
+        {"vary": [
+            [{"op": "write", "path": "target.txt", "content": "MINORITY\n"}],
+            [{"op": "write", "path": "target.txt", "content": "MAJORITY\n"}],
+            [{"op": "write", "path": "target.txt", "content": "MAJORITY\n"}],
+        ]},
+        extra_args=["--consensus", "3"],
+        env_extra={"GROK_BITCH_MOCK_COUNTER": str(counter)})
+    def _cons_majority(r):
+        c = r.get("consensus", {})
+        if not c.get("reached"):
+            return f"majority consensus not reached: {c}"
+        if c.get("agreement") != 2:
+            return f"expected 2/3 agreement, got {c.get('agreement')}"
+        return True
+    expect("consensus_majority", rc, rep, 0, "success", _cons_majority, err)
 
     print("=" * 70)
     print(f"RESULT: {len(PASS)} passed, {len(FAIL)} failed")

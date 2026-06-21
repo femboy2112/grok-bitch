@@ -331,6 +331,8 @@ summary + the disclaimer on **stderr**.
 | `--no-resource-limit` | **danger:** disable mem/CPU caps |
 | `--no-revert` | detect guard violations but leave them in place (still fails) |
 | `--revert-all-on-fail` | on any failure, git-revert ALL changes (needs clean tree) |
+| `--anchor PATH` | regression anchor: a golden-value path that must **not** drift across the run (repeatable); drift → exit 16, even if verify passed |
+| `--consensus N` | run the task N independent times (reverting between) and accept only the consensus by content signature; clean git tree required; tree left clean, winning patch saved |
 | `--dry-run` | print the plan; don't run grok |
 | `--report PATH` | also write the full JSON report here |
 | `--grok-bin PATH` | override the grok binary (used by the test suite) |
@@ -381,10 +383,13 @@ with them.
 | 13 | `timeout` | grok exceeded the wall-clock budget (killed) |
 | 14 | `preflight_error` | bad args / environment / policy refusal |
 | 15 | `resource_exceeded` | grok's tree hit the memory/output cap (killed) |
+| 16 | `regression` | a regression anchor (golden value) drifted post-run (`--anchor`) |
+| 17 | `no_consensus` | `--consensus` attempts did not converge on an answer |
 | 130 | `interrupted` | SIGINT |
 
-Precedence when several apply: **guard > resource > timeout > grok_error > verify > success.**
-A safety breach always surfaces.
+Precedence when several apply: **guard > resource > timeout > grok_error > verify > regression > success.**
+A safety breach always surfaces. (`--consensus` runs each attempt through that full
+precedence, then judges agreement across them — its own `no_consensus` verdict.)
 
 ---
 

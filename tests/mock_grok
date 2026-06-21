@@ -99,11 +99,30 @@ def main():
     except json.JSONDecodeError:
         spec = {}
 
-    for a in spec.get("actions", []):
+    # --consensus drives N independent calls; "vary" makes each call behave
+    # differently, indexed by a shared counter file, to exercise (dis)agreement.
+    actions = spec.get("actions", [])
+    vary = spec.get("vary")
+    if vary:
+        idx = 0
+        cpath = os.environ.get("GROK_BITCH_MOCK_COUNTER")
+        if cpath:
+            try:
+                idx = int(open(cpath).read().strip() or "0")
+            except Exception:
+                idx = 0
+            try:
+                with open(cpath, "w") as f:
+                    f.write(str(idx + 1))
+            except Exception:
+                pass
+        actions = vary[min(idx, len(vary) - 1)]
+
+    for a in actions:
         do_action(a, cwd)
 
     # 'flood' emits its own stdout; otherwise emit the normal result envelope.
-    if not any(a.get("op") == "flood" for a in spec.get("actions", [])):
+    if not any(a.get("op") == "flood" for a in actions):
         emit(spec)
 
     sys.exit(int(spec.get("exit", 0)))

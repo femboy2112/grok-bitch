@@ -51,6 +51,8 @@ exists, git is present, and the run dir is writable.
 | `--no-resource-limit` | **danger:** disable mem/CPU caps |
 | `--no-revert` | detect guard violations but leave them in place (still fails) |
 | `--revert-all-on-fail` | on any failure, git-revert ALL changes (needs clean tree) |
+| `--anchor PATH` | regression anchor: a golden-value path that must **not** drift across the run (repeatable); drift → exit 16, even if verify passed |
+| `--consensus N` | run the task N independent times (reverting between) and accept only the consensus by content signature; needs a clean git tree; tree left clean, winning patch saved (never auto-applied) |
 | `--dry-run` | print the plan; don't run grok |
 | `--report PATH` | also write the full JSON report here |
 | `--grok-bin PATH` | override the grok binary (used by the test suite) |
@@ -95,6 +97,16 @@ grok-bitch run "..." --dir /repo --dry-run
 # grok missing or out of usage -> automatically runs opus/medium as Morty
 grok-bitch run "…" --dir /repo --profile edit --verify "make check"
 grok-bitch run "…" --no-fallback        # fail instead of falling back
+
+# regression anchor (Time Crystal): fix the parser, but the formatter's golden
+# output must NOT move — drift fails the run (exit 16) even if --verify passes
+grok-bitch run "fix the parser bug" --dir /repo --profile edit \
+  --verify "make test" --anchor tests/golden/formatter.out
+
+# consensus (Council of Ricks): only trust a fix N independent attempts agree on;
+# clean git tree required, tree left clean, the winning patch saved for you to apply
+grok-bitch run "fix the flaky retry logic" --dir /repo --profile edit \
+  --verify "make test" --consensus 3
 ```
 
 Output: a JSON result on **stdout** (for the caller to parse) and a one-line human
@@ -113,9 +125,13 @@ summary + the disclaimer on **stderr**.
 | 13 | `timeout` | grok exceeded the wall-clock budget (killed) |
 | 14 | `preflight_error` | bad args / environment / policy refusal |
 | 15 | `resource_exceeded` | grok's tree hit the memory/output cap (killed) |
+| 16 | `regression` | a regression anchor (golden value) drifted post-run (`--anchor`) |
+| 17 | `no_consensus` | `--consensus` attempts did not converge on an answer |
 | 130 | `interrupted` | SIGINT |
 
-Precedence: **guard > resource > timeout > grok_error > verify > success.**
+Precedence: **guard > resource > timeout > grok_error > verify > regression > success.**
+(`no_consensus` is its own path — `--consensus` runs each attempt through the full
+precedence above, then judges agreement across them.)
 
 ---
 
@@ -138,6 +154,9 @@ Precedence: **guard > resource > timeout > grok_error > verify > success.**
              "cpu_cores": 4, "enforced_by": "systemd-cgroup",
              "grok_json": {"sessionId": "..."}},
   "verify": {"cmd": "make check", "passed": true, "tail": "..."},
+  "anchors": {"checked": [...], "drifted": [...]},          // present with --anchor
+  "consensus": {"n": 3, "threshold": 2, "agreement": 3,     // present with --consensus N
+                "reached": true, "winning_patch": "...", "attempts": [...]},
   "limits": {"mem_max_mb": 4096, "cpu_max_cores": 4, "enforced_by": "systemd-cgroup"},
   "run_dir": "~/.cache/grok-bitch/runs/...",
   "disclaimer": "DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). ..."
