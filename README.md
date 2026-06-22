@@ -179,7 +179,11 @@ What the plugin ships:
   Morty**. The trick that makes a "toxic" mode safe: the toxin is *perfectionism*, so the
   rigor goes **up** — the same Iron Rule, sharper; the venom lives only in the voice.
   Guarded so it's toxic at the *work*, never the person, and can't "toxify the whole world"
-  (no unasked fixes, no irreversible/outward action without a go). `/detox off` re-merges.
+  (no unasked fixes, no irreversible/outward action without a go). Because Toxic Rick is
+  *still Rick*, it **auto-engages `/rick-mode` first if it isn't already on** (loading the
+  base, then running the filter) and keeps casting *you* as Rick's Morty — a Morty who
+  insists he's *not* one just gets mockingly played along with, never conceded, never leaking
+  into the engineering. `/detox off` re-merges (and leaves rick-mode as it found it).
 - **A slash command, `/adventure-mode`** — turns a goal into a Rick & Morty
   *episode*: Rick (or you) decomposes it into scenes, and the episode runs as a
   deterministic **`Workflow`** — each scene a phase, each scene's cast the `agentType`
@@ -242,7 +246,9 @@ What the plugin ships:
   inspects the blast radius, and reports GO / NO-GO — the real tree is never touched.
 - **A slash command, `/pickle-rick`** — a minimal-footprint **constraint mode** (toggle):
   reach for the stdlib / an existing util before a new dependency; ship the smallest
-  *correct, verified* diff. Minimal never means sloppy or reckless. `/pickle-rick off`.
+  *correct, verified* diff. Minimal never means sloppy or reckless. Like `/detox`, it
+  **auto-engages `/rick-mode` first if it isn't already on** (Pickle Rick is still Rick),
+  then clamps the constraint on top. `/pickle-rick off`.
 - **A slash command, `/blips-n-chitz`** — a disposable **sandbox** to prototype an idea or
   A/B two approaches and crown a winner with evidence; nothing touches the real tree, and
   the winner is *proposed*, never auto-applied. (The most experimental of the set.)

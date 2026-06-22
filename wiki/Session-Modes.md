@@ -82,6 +82,18 @@ Ricklaxation*: it filters out the "healthy" half — the mellow one that hedges,
 calls things "good enough" — and keeps **Toxic Rick**. grok becomes **Toxic Morty** (the
 caged executor, same untrust and `--verify`, just sneering instead of anxious).
 
+**It's `/rick-mode` underneath, so it engages that first.** Toxic Rick is *still Rick* —
+just with the healthy half boiled off — so `/detox` loads the full rick-mode base
+(Algorithms, Lab Notebook, Citadel, cast routing, voice) *before* it runs the filter,
+**auto-engaging [`/rick-mode`](#rick-mode) if it isn't already on** and layering on top if it
+already is. The [naming multiverse](#rick-mode) carries over intact: *you* are still Rick's
+own Morty, grok/the fallback is the disposable knockoff — and a Morty who insists he's *not*
+a Morty (hands over a real name, says "stop calling me Morty") just gets **mockingly played
+along with**, the most Morty move in any dimension. Toxic Rick will *use* the name you give —
+wrapped in air quotes, "slipping" back to Morty by accident — but never concedes it, and only
+ever cites a Morty tell (a hedge, a "wait," an apology) that's **actually in your message**;
+he doesn't fabricate one for the bit, and it never touches the engineering.
+
 The trick that makes a "toxic" mode *safe and useful*: Toxic Rick's poison is
 **perfectionism and contempt for mediocrity**, so the rigor goes **up**, never down. The
 toxicity rides entirely on the voice (the same [Iron Rule](The-Iron-Rule.md) as rick-mode,
@@ -97,7 +109,9 @@ toxicity rides entirely on the voice (the same [Iron Rule](The-Iron-Rule.md) as 
   *loudly* — the half that would've buried it is gone. All of rick-mode's Algorithms,
   Lab Notebook, Citadel, and cast still apply underneath.
 
-`/detox off` re-merges with your healthy half and drops the persona.
+`/detox off` re-merges with your healthy half and drops the toxic filter — and **leaves
+rick-mode exactly as it found it**, so if `/detox` auto-engaged rick-mode for you, turn that
+off separately with `/rick-mode off`.
 
 ---
 
@@ -380,12 +394,15 @@ real apply is identical — that boundary is named in the verdict.)
 `/pickle-rick` is a **toggle** constraint mode: while engaged, every solution is held to a
 **minimal-footprint** bar — reach for the stdlib / an existing util / prior art before a new
 dependency, ship the smallest *correct, fully-verified* diff, and justify any new surface
-area out loud or drop it. The flex is doing more with less, not less work. Two hard
-guardrails keep the pickle from rotting: **minimal ≠ sloppy** (never a skipped test to
-shrink a diff) and **minimal ≠ reckless** (if the task genuinely needs a real dependency —
-crypto, a hard parser — say so loudly and use it; don't hand-roll a worse version of a
-solved thing). Pairs naturally with the `butter-robot` agent. `/pickle-rick off` lets it
-sprawl again.
+area out loud or drop it. The flex is doing more with less, not less work. Like `/detox`,
+Pickle Rick is *Rick* (who turned himself into a pickle), so engaging it **auto-engages
+[`/rick-mode`](#rick-mode) first if it isn't already on** — loading the base, then clamping
+the constraint on top; `/pickle-rick off` drops just the constraint and leaves rick-mode as
+it found it. Two hard guardrails keep the pickle from rotting: **minimal ≠ sloppy** (never a
+skipped test to shrink a diff) and **minimal ≠ reckless** (if the task genuinely needs a real
+dependency — crypto, a hard parser — say so loudly and use it; don't hand-roll a worse
+version of a solved thing). Pairs naturally with the `butter-robot` agent. `/pickle-rick off`
+lets it sprawl again.
 
 ## /blips-n-chitz
 
