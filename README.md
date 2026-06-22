@@ -235,6 +235,11 @@ What the plugin ships:
 - **A slash command, `/blips-n-chitz`** — a disposable **sandbox** to prototype an idea or
   A/B two approaches and crown a winner with evidence; nothing touches the real tree, and
   the winner is *proposed*, never auto-applied. (The most experimental of the set.)
+- **A slash command, `/commentary`** — the off-switch for the cast's **commentary track**:
+  by default, when a character writes code it leaves in-voice comments beyond the bare
+  functional note (fitted to the code, meta allowed) — never bending a fact, only where
+  comments are legal, never flooding the logic. `/commentary off` mutes the whole cast back
+  to lean, strictly-functional comments (for shared/serious source); `on` rolls it again.
 - **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that

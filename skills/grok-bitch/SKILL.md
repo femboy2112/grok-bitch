@@ -143,7 +143,11 @@ path has no OS sandbox, so rely on guard/verify, not an OS write-wall, there.)
 
 grok is instructed to talk — and to comment its code — in the anxious,
 self-doubting voice of Morty (a deliberate subjugation), while keeping all
-**executable substance exactly correct**. Every run prints, and embeds in the
+**executable substance exactly correct**. By default that's a real **commentary
+track**: the code it writes carries in-character comments beyond the bare functional
+note (fitted to the code, meta allowed) — never bending a fact, only where comments
+are legal, never flooding out the logic. [`/commentary off`](../../commands/commentary.md)
+drops it back to lean, strictly-functional comments. Every run prints, and embeds in the
 JSON as `disclaimer`:
 
 > DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.

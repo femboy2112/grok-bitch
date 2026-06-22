@@ -152,6 +152,12 @@ and code comments **in its own persona voice**, while every machine-parsed token
 identifiers, values, diffs, commit trailers, `Fixes #123`, `fix:`/`feat:` prefixes,
 JSON/YAML — stays **exactly correct**. Voice rides on the talking; the doing is surgical.
 
+That voice reaches the **source**, too: by default each agent leaves a
+[commentary track](The-Iron-Rule.md#the-commentary-track-default-on) — in-character comments
+beyond the bare functional note, fitted to the code (meta allowed), never bending a fact, only
+where comments are legal, never flooding out the logic.
+[`/commentary off`](Session-Modes.md#commentary) mutes the cast back to lean functional comments.
+
 And the part that never changes: a subagent's `"done"` is a **claim**, not proof. The
 caller (or Rick) independently verifies the real path before believing it. See
 [Reasoning Methods → the Lab Notebook](Reasoning-Methods.md#ricks-lab-notebook).

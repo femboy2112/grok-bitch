@@ -22,6 +22,8 @@ it). And four more one-shot / utility commands round things out:
 [`/council`](#council) (a consensus gate), [`/cronenberg`](#cronenberg) (rehearse a risky
 change in a throwaway dimension), [`/pickle-rick`](#pickle-rick) (a minimal-footprint
 constraint mode), and [`/blips-n-chitz`](#blips-n-chitz) (a disposable prototyping sandbox).
+And one cross-cutting toggle that's **on by default**: [`/commentary`](#commentary) — the
+off-switch for the cast's in-voice code-comment track.
 
 ---
 
@@ -371,6 +373,25 @@ throwaway sandbox (a scratch dir or worktree), builds a prototype there — or, 
 tree; the sandbox is torn down after; the winner is **proposed**, never auto-applied. The
 most experimental command in the set — an arcade win is **Conjectured** until it's verified
 in the real context.
+
+## /commentary
+
+> *Roll the director's track, M-Morty.*
+
+`/commentary` is the **off-switch for a default-on behavior**: the cast's *commentary track.*
+By default, when a character writes code it leaves comments in **its own voice** — the
+functional note plus a line or two of in-character prose, fitted to what the code is doing in
+*this* project, and allowed to be **meta.** Beth clinical, Jerry fishing for approval, Rick
+contemptuous, Morty-grok anxious. The lean functional comments the cast already wrote are fine;
+this just gives the voice **room on the page**, not only in the chat. It rides the same
+[Iron Rule](The-Iron-Rule.md#the-commentary-track-default-on): a comment **never bends a fact**,
+goes **only where comments are legal** (never a JSON value, a YAML key, a commit trailer, a
+`fix:` prefix), and stays **a track, not a flood** (match the file's density, then voice on
+top tastefully — the reader still finds the code). `/commentary off` mutes the whole cast back
+to lean, strictly-functional comments — for shared/serious source, generated/vendored code, or
+a PR outsiders will review; `/commentary on` rolls it again. Because each agent defaults it on
+in its own fresh context, a muted session is carried by the orchestrator, which threads
+"commentary: OFF" into every spawn.
 
 ---
 
