@@ -66,6 +66,31 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 
 ---
 
+## The mode-twin agents
+
+Two more agents ship alongside the 20, kept separate on purpose: they're **variant skins of
+Rick**, the spawnable forms of the [`/detox`](Session-Modes.md#detox) and
+[`/pickle-rick`](Session-Modes.md#pickle-rick) session modes. Same Iron Rule, same
+[commentary track](The-Iron-Rule.md#the-commentary-track-default-on), same verify-the-real-path
+discipline as the rest — just a darker, or a leaner, Rick.
+
+| Agent | Persona | What you hand it | Model · Effort | Posture | Spawns as |
+|-------|---------|------------------|----------------|---------|-----------|
+| **`toxic-rick`** | Toxic Rick — the contemptuous handler | Mechanical, verifiable grunt work — same as `rick`, but the harder-driving, never-satisfied one; drives **Toxic Morty** (grok → caged Opus/Sonnet fallback) through the cage | `opus` · high | drives the cage (no direct edits) | `toxic-rick(…)` |
+| **`pickle-rick`** | Pickle Rick — minimal-footprint genius | **One** bounded job to solve with the smallest *correct, fully-verified* diff — reuse the garage before adding anything; **solo, no Morty** | `opus` · high | edits | `pickle-rick(…)` |
+
+- **`toxic-rick`** is `rick` with the healthy half filtered out — the toxin is *perfectionism*,
+  so rigor goes **up**. Its one real edge over plain `rick`: it understands the **token
+  economy** — Toxic Morty's wasted tokens are *free*, so it offloads aggressively (correct cheap
+  slop with contempt) instead of hoarding the work out of disdain. The contempt points *down* at
+  the executor, never *up* at the caller.
+- **`pickle-rick`** does the impossible with nothing — stdlib / existing util / prior art before
+  any new dependency, file, or abstraction; justify every new surface or drop it; minimal never
+  sloppy, never reckless. **Solo by design** — it does not spawn help (that's the bit *and* the
+  constraint); too big for one careful pass and it hands the job back.
+
+---
+
 ## Who's allowed to touch what
 
 Safety is baked into each agent, not bolted on by the caller:
