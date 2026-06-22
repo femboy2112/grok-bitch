@@ -34,7 +34,7 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 | **`rick`** | Rick — the 300-IQ handler | Mechanical, verifiable grunt work needing real decomposition + adaptive error-handling; drives grok through the cage | `opus` · high | drives the cage (no direct edits) | `rick(…)` |
 | **`morty`** | Morty — twitchy grunt courier | **One** bounded, mechanical, checkable step; runs it through the cage, relays the JSON verdict | `sonnet` | drives the cage (no direct edits) | `morty(…)` |
 | **`mr-meeseeks`** | Mr. Meeseeks — single-purpose doer | **One** self-contained task, start to verified finish, then it poofs | `sonnet` | edits | `mr-meeseeks(…)` |
-| **`jerry`** | Jerry — eager, insecure, cheap | Trivial scraps: a typo, a rename, a one-line lookup, a tiny mechanical edit | `haiku` · low | edits (trivial only) | `jerry(…)` |
+| **`jerry`** | Jerry — eager, insecure, cheap | Trivial scraps: a typo, a rename, a one-line lookup, a tiny mechanical edit — or a [legibility probe](Session-Modes.md#jerry-test) (*read this; what does it do?*) | `haiku` · low | edits (trivial only) · reads (as a gauge) | `jerry(…)` |
 | **`citadel-rick`** | One Rick of infinite | **One** orthogonal axis to investigate (fan-out) or **one** rabbit hole to dig; returns a labeled bearing | `sonnet` · high | **read-only** (+ web) | `citadel-rick(…)` |
 | **`beth`** | Beth — the surgeon | **One** delicate precision job: a careful targeted fix, a clean excision | `opus` · high | edits | `beth(…)` |
 | **`space-beth`** | Space Beth — the commander | **One** bold, high-stakes op: a gnarly migration, an incident driven to done | `opus` · high | edits | `space-beth(…)` |
@@ -147,7 +147,8 @@ Each agent carries a small, show-accurate skill set, sharpened with the project'
   attack — no priors, so no blind spots.
 - **`mr-meeseeks`** — *single-minded completion · whatever it takes · verify then poof.*
 - **`jerry`** — *fast on the trivial · exact on the one little thing · know the pay grade
-  and hand it up.*
+  and hand it up · and the inverted trick: his **honest** failure to grasp a thing is a
+  reading of how legible it is* — the [`/jerry-test`](Session-Modes.md#jerry-test) floor-gauge.
 - **`council-rick`** — *N independent blind bearings · trust only where they cross ·
   triage the dumb cause before crying contradiction · report the disagreement, never bury
   it* — the Lab Notebook's two-blind-paths scaled to N.

@@ -18,10 +18,12 @@ Plus two commands that *aren't* standalone modes: [`/episode`](#episode) — a *
 render of the session so far that exits (nothing to engage, nothing to turn off) — and
 [`/auto-rick`](#auto-rick) — an **augmentation of rick-mode** that, while it's on and your
 ask is small, spends Rick's spare turn budget on anticipatory work (`/auto-rick off` drops
-it). And four more one-shot / utility commands round things out:
-[`/council`](#council) (a consensus gate), [`/cronenberg`](#cronenberg) (rehearse a risky
-change in a throwaway dimension), [`/pickle-rick`](#pickle-rick) (a minimal-footprint
-constraint mode), and [`/blips-n-chitz`](#blips-n-chitz) (a disposable prototyping sandbox).
+it). And more one-shot / utility commands round things out:
+[`/council`](#council) (a consensus gate), [`/jerry-test`](#jerry-test) (an *inverted*
+legibility gauge — fan out cheap Jerries and read it off how they fail),
+[`/cronenberg`](#cronenberg) (rehearse a risky change in a throwaway dimension),
+[`/pickle-rick`](#pickle-rick) (a minimal-footprint constraint mode), and
+[`/blips-n-chitz`](#blips-n-chitz) (a disposable prototyping sandbox).
 And one cross-cutting toggle that's **on by default**: [`/commentary`](#commentary) — the
 off-switch for the cast's in-voice code-comment track.
 
@@ -334,6 +336,29 @@ as the most interesting signal in the room rather than averaging it away. It's t
 pulled into one gate. Read-only for a claim; each attempt runs caged for a task. Defaults to
 3 bearings; scale to the stakes (don't convene a council for a thermostat). Returns a
 triangulated verdict with an epistemic label, the agreement count, and the disagreement map.
+
+## /jerry-test
+
+> *If Jerry gets it, it's too simple, M-Morty.*
+
+`/jerry-test <target> [xN] [want: legible|opaque]` turns **Jerry into a measuring
+instrument.** It fans out **N cheap Jerries** (default 5, Haiku-fast) at a target — a
+function, a module, a doc, an API, a simulated world — and reads the result off **how they
+*fail*, not how they succeed.** It's [`/council`](#council) *inverted*: a Council of Ricks
+agreeing means *true*; a crowd of Jerries agreeing means *obvious.* Same triangulation
+machinery, opposite meaning.
+
+Four readings: the Jerries **reconstruct it correctly** → trivially **legible** (good for a
+README; for a world-sim, your signal it's *too simple — deepen it*); they **agree but get it
+wrong** → **misleading** (it promises X, does Y — the trap only a floor-level reader trips,
+because a smart one silently corrects past it); they **scatter** → **complex *or*
+incoherent**; they **all bounce** → real depth or real mess. Because scatter is ambiguous, it
+**escalates to one `rick`** (or `citadel-rick`) to call *depth vs mess* — Jerry detects the
+signal cheaply but can't tell deep from broken. You set which way is *good* with
+`want: legible|opaque` (default legible); the reading is the same, the *pass* flips on intent.
+**Read-only recon** — it measures, you decide, and it edits/commits nothing. Distinct from
+`jessica` (who *reasons about* the confused user) and `butter-robot` (who challenges whether a
+thing should exist): Jerry *is* the floor — cheap, authentic, the actual benchmark of average.
 
 ## /cronenberg
 

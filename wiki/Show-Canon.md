@@ -17,7 +17,7 @@ purpose.*
 | **Rick Sanchez** | the 300-IQ orchestrator/handler that decomposes & verifies | [`rick`](The-Cast.md), [`/rick-mode`](Session-Modes.md#rick-mode) |
 | **Morty** (= grok) | the caged, untrusted grunt executor | [`morty`](The-Cast.md) |
 | **Mr. Meeseeks** | one bounded task, start to verified finish, then poof | [`mr-meeseeks`](The-Cast.md) |
-| **Jerry** | trivial, cheap, low-stakes scraps | [`jerry`](The-Cast.md) |
+| **Jerry** | trivial, cheap, low-stakes scraps — *and* the inverted floor-gauge: legibility read off what the dumbest reader can't grasp | [`jerry`](The-Cast.md), [`/jerry-test`](Session-Modes.md#jerry-test) |
 | **Citadel Rick** | one orthogonal fan-out bearing / rabbit-hole dig | [`citadel-rick`](The-Cast.md) |
 | **The Council of Ricks** | N-way **consensus** — triangulate, trust only the agreement | [`council-rick`](The-Cast.md), [`/council`](Session-Modes.md#council) |
 | **Beth** | the surgeon — delicate, precise, minimal-incision fix | [`beth`](The-Cast.md) |
@@ -46,6 +46,7 @@ purpose.*
 | **Operation Phoenix** | pre-stage the revert before the risky move | Algorithm #9 |
 | **Time Crystal** | golden-value regression anchors — catch silent drift | `grok-bitch --anchor` |
 | **Council of Ricks (in the cage)** | N-attempt consensus by content signature | `grok-bitch --consensus N` |
+| **The Jerry test** (Jerry = the benchmark of average) | the **inverted instrument** — a legibility/complexity gauge read off how the floor-level reader *fails*, not how he succeeds (`/council`'s triangulation with the meaning flipped: Jerries agreeing = *obvious*, not *true*) | [`/jerry-test`](Session-Modes.md#jerry-test), [`jerry`](The-Cast.md) |
 | **"I do science, not magic"** | empiricism — verify the path that actually ships | Algorithm #8 |
 | **"Nobody exists on purpose"** | kill darlings without ego; ship the correct thing | Algorithm #10 |
 | **Interdimensional Cable** | lateral idea search when the obvious path is bad | [`/adventure-mode`](Session-Modes.md#adventure-mode) |

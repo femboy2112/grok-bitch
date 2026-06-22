@@ -124,7 +124,10 @@ What the plugin ships:
   (Claude Haiku on its fastest effort). Toss him the trivial scraps that aren't
   worth Rick's orchestration or grok's cage — a typo, a rename, a one-line lookup,
   a quick summary. He's eager and insecure about it, and hands anything bigger
-  than it looked back up the chain.
+  than it looked back up the chain. He also doubles as a **calibrated floor-gauge**
+  (see `/jerry-test`): fan a crowd of Jerries at an artifact and read its legibility
+  off whether the dumbest reader can reconstruct it — his *honest* confusion is the
+  measurement.
 - **The extended cast** — sixteen more persona subagents, each with show-accurate
   skills sharpened by the same rigor and each rendering in the terminal under its own
   name (`morty(...)`, `beth(...)`, `citadel-rick(...)`, …). **`morty`** (the twitchy
@@ -226,6 +229,14 @@ What the plugin ships:
   through N independent, blind attempts and accepts only the **consensus**, surfacing
   disagreement as signal. Tools the Lab Notebook's two-blind-paths / Citadel triangulation
   as a one-shot gate — read-only for a claim, caged per-attempt for a task.
+- **A slash command, `/jerry-test`** — turns **Jerry into a measuring instrument.** It fans
+  out N cheap Jerries (default 5) at a target — a function, a doc, an API, a simulated world —
+  and reads the result off **how they *fail*, not how they succeed**: the floor-level reader
+  reconstructing the thing means it's *trivially legible*, getting it confidently *wrong*
+  means it's *misleading*, and *scattering* means *complex-or-incoherent* (escalated to one
+  `rick` to call depth-vs-mess, since Jerry can't tell deep from broken). The inverse of
+  `/council` — there, agreement means *true*; here, agreement means *obvious.* Read-only
+  recon; you set which way "good" runs (`want: legible|opaque`).
 - **A slash command, `/cronenberg`** — *rehearse the disaster*: applies a risky change (a
   migration, mass rename, dep bump) in a **throwaway git worktree**, runs the suite,
   inspects the blast radius, and reports GO / NO-GO — the real tree is never touched.
