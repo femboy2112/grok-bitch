@@ -206,6 +206,9 @@ What the plugin ships:
   *Withdrawn*) and flags anything still **UNVERIFIED** *louder* than it happened. Grounded
   only in real footage, so it can't dramatize progress that didn't occur. Read-only — it
   screens the session, it doesn't re-shoot it; `teaser` cuts the 30-second "previously on."
+  Across sessions it threads a **season**: by default it reads prior `season-canon` **memory**
+  for an honest "previously on," and — only on an explicit ask — writes back one labeled canon
+  beat (what shipped *Verified*, what's still **UNVERIFIED**), the single thing it ever writes.
 - **A slash command, `/auto-rick`** — an **augmentation of `/rick-mode`** (not a mode of
   its own): while rick-mode is on and your request is *small*, Rick spends the leftover
   turn budget on high-value anticipatory work — surfacing the next decision-tree branch,
@@ -241,6 +244,18 @@ What the plugin ships:
   `rick` to call depth-vs-mess, since Jerry can't tell deep from broken). The inverse of
   `/council` — there, agreement means *true*; here, agreement means *obvious.* Read-only
   recon; you set which way "good" runs (`want: legible|opaque`).
+- **A slash command, `/jerry-swarm`** — *Nuptia 4's* chair: blast a horde of cheap,
+  disposable one-off agents at a broad **front** — a task made of many homogeneous,
+  independent, individually-trivial units (one lint fix across 200 files, a docstring per
+  function, triage 50 failing tests, generate 100 fixtures). Like Beth spawning a line of
+  Jerrys to swarm the monster, you spawn one `jerry` per unit (or `mr-meeseeks` for a heavier
+  horde), in parallel via a `Workflow`, each with a pass/fail check, never trusted on its word
+  — then **verify the front fell as a whole**, not unit-by-unit. The throughput sibling of
+  `/council` (consensus) and `/jerry-test` (measurement). Hard gate: a swarm only works on a
+  *real* front (many / homogeneous / independent / trivial-per-unit); units with
+  cross-dependencies or needing judgment **cronenberg** under a horde — those are Beth's
+  surgery or Rick's orchestration. It's *your* tokens × N (not the free grok cage), so it pays
+  only when the cheap floor suffices and parallelism beats grinding serially.
 - **A slash command, `/cronenberg`** — *rehearse the disaster*: applies a risky change (a
   migration, mass rename, dep bump) in a **throwaway git worktree**, runs the suite,
   inspects the blast radius, and reports GO / NO-GO — the real tree is never touched.

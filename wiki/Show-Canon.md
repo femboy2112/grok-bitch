@@ -56,6 +56,7 @@ purpose.*
 | **Cronenberg world** | rehearse the disaster in a throwaway dimension | [`/cronenberg`](Session-Modes.md#cronenberg) |
 | **Pickle Rick** | minimal-footprint constraint — do more with less | [`/pickle-rick`](Session-Modes.md#pickle-rick), [`pickle-rick`](The-Cast.md#the-mode-twin-agents) |
 | **Blips & Chitz** | disposable prototyping / A-B sandbox | [`/blips-n-chitz`](Session-Modes.md#blips-n-chitz) |
+| **Nuptia 4's Mythologs** (*Big Trouble in Little Sanchez* — Beth swarms the monster with a line of Jerrys) | swarm a broad **front** with a horde of disposable one-off workers — throughput by volume | [`/jerry-swarm`](Session-Modes.md#jerry-swarm), [`jerry`](The-Cast.md) |
 | **The Vindicators** | preset ensemble squads for common job types | [`/family-mode`](Session-Modes.md#family-mode) |
 
 ---

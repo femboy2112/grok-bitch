@@ -21,6 +21,7 @@ ask is small, spends Rick's spare turn budget on anticipatory work (`/auto-rick 
 it). And more one-shot / utility commands round things out:
 [`/council`](#council) (a consensus gate), [`/jerry-test`](#jerry-test) (an *inverted*
 legibility gauge — fan out cheap Jerries and read it off how they fail),
+[`/jerry-swarm`](#jerry-swarm) (blast a horde of disposable Jerries at a broad front),
 [`/cronenberg`](#cronenberg) (rehearse a risky change in a throwaway dimension),
 [`/pickle-rick`](#pickle-rick) (a minimal-footprint constraint mode), and
 [`/blips-n-chitz`](#blips-n-chitz) (a disposable prototyping sandbox).
@@ -297,6 +298,18 @@ grounded only in real footage, so it can't dramatize progress that didn't occur 
 reel is gone from context, it says so in the tag (a named gap, never a guessed one).
 `teaser` / `recap` cuts the 30-second "previously on" instead of the full episode.
 
+**The season so far — canon across sessions.** A single `/episode` cuts *this* session; a
+**season** is the thread across them, and it lives in the project's
+[memory](Reasoning-Methods.md). By default the read is **read-only**: before the cold open,
+`/episode` checks memory for prior season beats — a `season-canon` entry, the recurring bug
+you've been fighting, a darling you killed three sessions ago — and pulls the "previously on"
+from whatever's *actually* there, inventing no callback (a remembered beat is real or it's
+not on screen). The one thing it can *write* is opt-in and the only write it ever makes: if
+you want a running arc, it **offers** to drop a single labeled `season-canon` beat into
+memory — what this episode shipped (*Verified*), what's still open (**UNVERIFIED**), any
+thread left dangling — so the *next* episode's "previously on" is true. One honest line, only
+on your yes, never a flattering rewrite.
+
 ---
 
 ## `/auto-rick`
@@ -373,6 +386,56 @@ signal cheaply but can't tell deep from broken. You set which way is *good* with
 **Read-only recon** — it measures, you decide, and it edits/commits nothing. Distinct from
 `jessica` (who *reasons about* the confused user) and `butter-robot` (who challenges whether a
 thing should exist): Jerry *is* the floor — cheap, authentic, the actual benchmark of average.
+
+## /jerry-swarm
+
+> *Spawn the line, M-Morty, and bury it in Jerrys.*
+
+`/jerry-swarm <front> [xN] [meeseeks]` is the **throughput** fan-out — the
+[Nuptia 4](Show-Canon.md) chair, where Beth, wired in, didn't duel the monster one-on-one
+but spawned a **line of disposable Jerrys** and swarmed it under. Some problems aren't a
+*cut*, they're a **front**: a wide, dumb surface made of many near-identical little fights —
+one lint fix across 200 files, a docstring per function, triaging 50 failing tests,
+generating 100 fixtures. You don't send the surgeon to a hundred fights; you blast a horde of
+cheap one-offs at it. It spawns one **`jerry`** per unit (or **`mr-meeseeks`** for a heavier
+horde), in parallel via a `Workflow`, each handed one bounded unit and a pass/fail check,
+each blind, none trusted on its word.
+
+It's a *different* fan-out from its siblings, and the distinction is the point:
+**[`/council`](#council)** runs N attempts at the **same** unit → trusts the *consensus*
+(**truth**); **[`/jerry-test`](#jerry-test)** runs N Jerries at **one** target → reads the
+*failure* (**legibility**); **/jerry-swarm** runs N Jerries each at a **different** unit of
+one front → *overwhelms by volume* (**throughput**); the
+**[Citadel](Reasoning-Methods.md#the-citadel-of-ricks)** runs N **orthogonal** bearings
+(**coverage**).
+
+**The whole game is the gate: is there actually a front?** A swarm is devastating on a real
+one and a **Cronenberg** on a fake one. The target qualifies only if its units are all four:
+**many** (a handful? just do them), **homogeneous** (one instruction fits all), **independent**
+(no unit needs another's result; none touch the same ground), and **trivial per unit** (a
+floor-level worker finishes one with an unambiguous pass/fail). Fail any and it's not a front
+— it's a *cut* for `beth` or an *orchestration* for [`/adventure-mode`](#adventure-mode), and
+swarming it just yields a hundred half-right diffs that fight each other. The guardrails that
+keep the horde from becoming the monster:
+
+- **Verify the front fell *as a whole.*** Every Jerry's "done!" is a claim, not a fact. After
+  the swarm lands, the real check runs across the whole front (the suite, a re-grep, a sampled
+  spot-check); a line of Jerries reporting victory is never proof the monster's dead.
+- **It's *your* currency × N — not the free grok cage.** Unlike offloading to grok
+  ([Toxic Morty's tokens are free](#detox)), a swarm is N Claude agents doing their *own*
+  work, so it spends the orchestrator's expensive budget multiplied. It pays only when the
+  cheap floor suffices **and** parallel wall-clock beats grinding serially — default `jerry`,
+  escalate to `meeseeks` only when a unit needs it, and never bill a swarm as "free."
+- **Isolate the blast radius, cap honestly, triage the stragglers.** Worktree-isolate units
+  that mutate files (or partition by file) so the horde doesn't overwrite itself; if you
+  sample a huge front with `xN`, **name what you left uncovered**; and units a Jerry *hands
+  back up* are by definition not trivial — pull them out for the right hand (`rick`, `beth`),
+  don't re-swarm them.
+
+Read-only on the decision, caged on the doing; like every mode it **never** pushes (or takes
+any outward/irreversible move) on the swarm's say-so — it returns the verified result for you
+to ship. Closes on the body count: units swarmed, units cleared (Verified by the whole-front
+check), units handed back and where they went, anything uncovered.
 
 ## /cronenberg
 
