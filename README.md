@@ -539,3 +539,11 @@ The full manual lives in [`wiki/`](wiki/Home.md):
 - **[CLI Reference](wiki/CLI-Reference.md)** — every `grok-bitch` option and the JSON
   schema.
 - **[FAQ](wiki/FAQ.md)** — the questions people actually ask.
+
+---
+
+## 💜 Support
+
+This tool is free and open source. If it saved you time or a headache, you can
+[buy me a coffee ☕](https://ko-fi.com/leah2112) — it goes straight to my Claude
+bill, which is what i use to build these. No pressure, ever.
