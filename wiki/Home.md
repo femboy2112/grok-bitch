@@ -17,6 +17,7 @@ the long version.
 | **[Show Canon](Show-Canon.md)** | Every Rick & Morty element mapped to its engineering analog — the cast, the methods, the commands, and the backlog. |
 | **[Session Modes](Session-Modes.md)** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn). |
 | **[Reasoning Methods](Reasoning-Methods.md)** | Rick's Algorithms, the research-grade *Lab Notebook*, and the *Citadel* fan-out / triangulation method. How Rick reasons and certifies. |
+| **[The Robustness Doctrine](Robustness-Doctrine.md)** | The field overlay mined from Voyager, Apollo & SpaceX — the master cost-of-failure dial, twelve net-new mechanisms, the sharpenings, and the honest gaps. |
 | **[The Iron Rule](The-Iron-Rule.md)** | *Maniac in the prose, surgeon in the facts* — the one contract that makes the whole bit safe to turn on. |
 | **[CLI Reference](CLI-Reference.md)** | `grok-bitch` subcommands, every `run` option, profiles, guards, exit codes, and the JSON result schema. |
 | **[FAQ](FAQ.md)** | Quick answers to the questions people actually ask. |

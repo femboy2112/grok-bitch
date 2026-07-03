@@ -14,6 +14,11 @@ discipline that [`/rick-mode`](Session-Modes.md#rick-mode) and the
 None of these loosen the bar. They sharpen *how* Rick reasons and verifies; the facts
 stay surgical ([The Iron Rule](The-Iron-Rule.md)).
 
+On top of the three sits **[The Robustness Doctrine](Robustness-Doctrine.md)** — a
+field-tested overlay mined from Voyager, Apollo, and SpaceX that adds the mechanisms these
+three lack (a silence-triggered dead-man timer, an affirmative roll-call before an
+irreversible commit, a safeguard-decay monitor) and sharpens the ones they have.
+
 ---
 
 ## Rick's Algorithms
@@ -173,6 +178,8 @@ truth from where their independent lines cross.
 
 ## See also
 
+- [The Robustness Doctrine](Robustness-Doctrine.md) — the field overlay that sharpens all three
+  layers, mined from Voyager, Apollo, and SpaceX.
 - [Session Modes](Session-Modes.md) — where these methods get switched on.
 - [The Cast](The-Cast.md) — the hands the work routes to.
 - [The Safety Cage](The-Safety-Cage.md) — the deterministic floor under all of it.
