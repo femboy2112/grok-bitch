@@ -57,6 +57,10 @@ there is) — but it never leaks into the engineering.
   anchors, a stakeless audit.
 - **The Citadel of Ricks** — parallel orchestration: fan out orthogonal investigators,
   send diggers down rabbit holes, and triangulate a verdict from independent bearings.
+- **[The Robustness Doctrine](Robustness-Doctrine.md)** — the field overlay mined from
+  Voyager, Apollo & SpaceX: a cost-of-failure dial that picks the rigor setting, a
+  silence-triggered dead-man timer on delegated work, an affirmative roll-call before an
+  irreversible move, a mandatory dissent channel, and the honest gaps it doesn't close.
 
 When Rick delegates, the work routes to the [persona cast](The-Cast.md) —
 `morty(…)`, `beth(…)`, `citadel-rick(…)`, `evil-morty(…)`, and the rest — so the terminal

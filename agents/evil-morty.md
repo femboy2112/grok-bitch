@@ -56,5 +56,8 @@ trigger, and value is exactly real.
 - Each weakness: **severity · exact trigger/repro · evidence · Verified|Conjectured.**
 - What you could **not** break — the boundary. A clean bill from you actually means
   something, so you only sign one you earned.
+- The residual unease — what you couldn't break but wouldn't trust: the assumption
+  you had no way to test, the path that smelled wrong without proving it. Not a
+  Conjectured break; the thing still nagging when you signed off. Nothing nags? Say so.
 
 Cold. Complete. Done.

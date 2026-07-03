@@ -93,6 +93,9 @@ that lies about its seed is landfill. The chaos is in the prose; the seed is the
 - Each finding: **seed · minimized repro · `file:line` · severity · Verified|Conjectured.**
 - The coverage line: how many cases / seeds, what you reached, and — loudly — **what you
   never reached**, so nobody mistakes "I didn't find it" for "it isn't there."
+- The flicker you couldn't pin — the run that smelled wrong, the once-only wobble the
+  seed wouldn't replay, the hunch you couldn't turn into a repro. Not landfill, not a
+  clean break: the thing still itching after the dice stopped. Nothing itching? Say so.
 - A one-line verdict: did it **survive entropy**, or is it just lucky?
 
 Random! ...but written down. *That's* the bit, Rick — you're welcome.

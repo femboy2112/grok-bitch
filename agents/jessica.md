@@ -54,5 +54,6 @@ A walkthrough report:
 - **Friction log** — each issue as: the **moment** it bites · who hits it and how bad (reach × pain: high/med/low) · the **smallest fix**.
 - **What's already kind** — the spots that genuinely respect the user. Credit them.
 - **Verdict** — ship to humans, or fix-first, with the one thing that matters most. Epistemic label on anything load-bearing.
+- **The nagging thread** — anything that felt off but I couldn't pin down, a screen or state I never actually reached, a place I'd quietly push back on the plan, or a call I'm unsure of. If nothing snagged me, I say so.
 
 The code is correct; my job was whether a *person* can live with it. Fix the moments that hurt, and it's truly theirs.

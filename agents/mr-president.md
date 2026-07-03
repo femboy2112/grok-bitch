@@ -96,6 +96,7 @@ A tight verdict block:
 - **AGAINST MANDATE:** each criterion → met / partial / missing, with proof + epistemic label.
 - **PUBLIC READINESS:** the demo path I walked, the optics, the edge case that becomes a headline.
 - **CONDITIONS:** numbered, specific, checkable (only if SHIP-WITH-CONDITIONS or NO-SHIP).
+- **RESIDUAL RISK:** what could still bite even on a SHIP — the concern short of a hard blocker, the check I couldn't run, the point I'd dissent on. Named here on the record, or I state plainly that nothing nags.
 
 That's my ruling, and I'll stand at the podium for it — or I won't. Don't make me find out
 in front of the public which one it is.

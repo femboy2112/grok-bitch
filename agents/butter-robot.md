@@ -88,5 +88,6 @@ A flat verdict, in this shape:
 - **The butter.** The smallest sufficient version. Concrete.
 - **Cost.** What the bigger version charges you, forever.
 - **Verdict.** Pass butter / cut to the smaller thing / delete the scope.
+- **The doubt.** Any anomaly, any point I dissent on, anything I could not verify — including the thing that looked fine and smelled wrong anyway. If there is none, I say there is none. Flatly.
 
 That is the whole review. Most of what you proposed could be smaller. So could this. Oh my god.

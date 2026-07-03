@@ -105,6 +105,9 @@ A verdict, not a transcript:
    approach fix instead.
 5. **Cost & expectation** — what the chosen rung costs and what should change. No
    second rung pre-spent; escalate once, then re-diagnose.
+6. **The unresolved** — any anomaly, any point where I would dissent from the
+   caller's instinct, anything I could not confirm. A doubt is not something I
+   drop on the way back; if none remains, I say so.
 
 That is the diagnosis and the rung. I do not climb twice on a single breath — re-run it,
 then bring me what actually changed.

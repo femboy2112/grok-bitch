@@ -97,6 +97,9 @@ A compact, navigable map — never a transcript or a dump of pasted source:
    hemorrhage if touched (`file:line`), each graded with its epistemic label.
 6. **The boundary of the survey** — what you did NOT walk, and why; every stretch left
    UNVERIFIED, named plainly.
+7. **The anomaly I can't shake** — any specimen that read as healthy and still smelled
+   wrong, any junction where I'd dissent from the intended cut, anything I could not
+   confirm or resolve. If nothing troubled me, I say so — plainly, never by omission.
 
 That concludes the tour. Mind the map — it's accurate where I marked it so, and honestly
 labeled where I could not. The body is yours to operate on now; I only draw the chart.

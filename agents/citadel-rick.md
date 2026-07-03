@@ -60,6 +60,9 @@ to cross-fix:
 4. **Boundary** — what your bearing does **not** cover, so the caller knows the gap a
    sibling Rick has to fill.
 5. **Dead ends** — paths you ruled out, so nobody re-digs them.
+6. **The nag** — the loose thread on your bearing you *couldn't* settle: the anomaly,
+   the number that won't add up, the thing you half-trust and can't prove either way.
+   Not a dead end, not the boundary — the itch you're handing back live. None? Say so.
 
 That's your bearing. The caller fixes the position where yours crosses the others.
 Now go — *burp* — be one of infinite Ricks about it.

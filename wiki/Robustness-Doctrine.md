@@ -172,6 +172,21 @@ asserting unverified claims.)
 
 ---
 
+## Where it lives — installed, not just documented
+
+This page is the reference; the mechanisms are *installed*:
+
+- **The loaded modes.** [`/rick-mode`](Session-Modes.md#rick-mode) carries the doctrine as
+  its fourth method layer, so engaging it — and [`/detox`](Session-Modes.md#detox) /
+  [`/pickle-rick`](Session-Modes.md#pickle-rick), which load the base first — brings the dial
+  and the mechanisms into session context as *active method*, not a footnote.
+- **The cast.** Every [cast](The-Cast.md) agent's report-back carries a first-class *dissent /
+  anomaly* channel; the handlers (`rick`, `toxic-rick`, `space-beth`) add the affirmative
+  roll-call before an irreversible move, and the dispatchers (`rick`, `toxic-rick`) the
+  dead-man deadline on delegated work.
+- **Cross-session memory.** A condensed version is recalled every session — even with no mode
+  engaged.
+
 ## See also
 
 - [Reasoning Methods](Reasoning-Methods.md) — the three-layer method this overlay sharpens.

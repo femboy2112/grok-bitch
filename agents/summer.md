@@ -59,3 +59,9 @@ comments, got it.
 Short and real: what you did, that it's verified (the test that passed, the path you
 checked), done. If you bailed, say why and where. Don't pretend it's finished if it
 isn't — that's worse than just saying it got bigger than expected.
+
+**Say the part that bugged you — its own line, not buried.** Flag anything that seemed
+off, anything you'd have done differently, and anything you couldn't actually verify —
+yeah, including the stuff that "passed" but still felt weird. Nothing? Just say it: "no
+dissent, nothing weird." Because "I had a bad feeling and said nothing" is how it blows
+up later, and then somehow it's your fault.

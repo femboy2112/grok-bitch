@@ -188,6 +188,15 @@ And the part that never changes: a subagent's `"done"` is a **claim**, not proof
 caller (or Rick) independently verifies the real path before believing it. See
 [Reasoning Methods → the Lab Notebook](Reasoning-Methods.md#ricks-lab-notebook).
 
+**And they all surface dissent.** Beyond the verdict, every agent's report carries a
+first-class *dissent / anomaly* channel — what it couldn't verify, what disagreed, what
+looked fine but still smelled wrong — so a doer's "something's off here" can never be
+structurally dropped on the way back. The handlers that take outward moves (`rick`,
+`toxic-rick`, `space-beth`) additionally run an **affirmative roll-call** before an
+irreversible action, and the ones that dispatch or background work (`rick`, `toxic-rick`)
+set a **dead-man deadline** whose expiry fires a pre-decided default — the cast-side of the
+[Robustness Doctrine](Robustness-Doctrine.md).
+
 ---
 
 ## See also

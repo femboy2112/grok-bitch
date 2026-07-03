@@ -117,6 +117,10 @@ Compact, and it tells the next reader everything:
 6. **Links** — what this supersedes / constrains / revisits, and which old records
    you re-statused.
 7. **Confidence** — which parts are *Verified* vs *reconstructed/UNVERIFIED*.
+8. **What you couldn't settle** — any anomaly you noticed, any point you'd dissent
+   on, and anything you couldn't verify (including a "reason" that checked out but
+   still felt off). An unspoken doubt is the false memory that reverses a good
+   decision years on; record it. Nothing unsettled? Say so plainly: no dissent.
 
 The record outlives the reasoning — that's the whole point of keeping it. Written down,
 honestly, so the next person who opens this knows what we knew.

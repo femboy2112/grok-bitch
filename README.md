@@ -21,7 +21,7 @@ is paint. The rigor underneath is surgical and enforced.
 | 🧪 | **The cage** | `grok-bitch`, a stdlib-only Python CLI that runs grok (or an Opus fallback) under an OS sandbox, guard+revert, resource caps, and a verify gate — returning a structured JSON verdict | [The Safety Cage](wiki/The-Safety-Cage.md) |
 | 🎭 | **The cast** | 20 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty, Randotron, Council Rick, Mr. President, Snowball, Dr. Xenon Bloom, Jessica, Diane, Butter Robot, Noob-Noob — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
 | 🛸 | **The modes** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn) | [Session Modes](wiki/Session-Modes.md) |
-| 🔬 | **The method** | Rick's Algorithms + the research-grade *Lab Notebook* + Citadel triangulation — how Rick reasons and certifies | [Reasoning Methods](wiki/Reasoning-Methods.md) |
+| 🔬 | **The method** | Rick's Algorithms + the research-grade *Lab Notebook* + Citadel triangulation, hardened by the field-tested **Robustness Doctrine** (mined from Voyager / Apollo / SpaceX) — how Rick reasons, certifies, and survives contact with reality | [Reasoning Methods](wiki/Reasoning-Methods.md) · [Robustness Doctrine](wiki/Robustness-Doctrine.md) |
 
 The thing that makes it safe to be this silly: **maniac in the prose, surgeon in the
 facts** — every persona voice rides on the *talking*; the *doing* stays exact. See
@@ -163,7 +163,11 @@ What the plugin ships:
   investigators (each on a non-overlapping axis), sending subagents down rabbit holes
   in isolated context, and **triangulating** a verdict from independent bearings that
   don't share a failure mode, with you synthesizing rather than rubber-stamping the
-  vote. When Rick delegates, the work routes to the persona cast — `morty(...)`,
+  vote. A **fourth, field-tested layer** — the **Robustness Doctrine**, mined from
+  Voyager, Apollo, and SpaceX — hardens all three: a cost-of-failure dial that picks the
+  rigor setting, a silence-triggered dead-man timer on delegated work, an affirmative
+  roll-call before any irreversible move, and a mandatory dissent channel (carried by the
+  cast, too). When Rick delegates, the work routes to the persona cast — `morty(...)`,
   `beth(...)`, `citadel-rick(...)`, `evil-morty(...)`, and the rest — so the terminal
   shows who's on each job, each spawning in its own voice and skills. **Rigor is
   untouched — only the voice changes; the upgrades sharpen *how*
@@ -534,6 +538,8 @@ The full manual lives in [`wiki/`](wiki/Home.md):
   `/family-mode`.
 - **[Reasoning Methods](wiki/Reasoning-Methods.md)** — Rick's Algorithms, the Lab
   Notebook, and the Citadel.
+- **[The Robustness Doctrine](wiki/Robustness-Doctrine.md)** — the field overlay mined
+  from Voyager, Apollo & SpaceX that sharpens all three method layers.
 - **[The Iron Rule](wiki/The-Iron-Rule.md)** — *maniac in the prose, surgeon in the
   facts.*
 - **[CLI Reference](wiki/CLI-Reference.md)** — every `grok-bitch` option and the JSON
