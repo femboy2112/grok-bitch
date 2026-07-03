@@ -476,6 +476,107 @@ angle could trust.
    thread, and move on. Spend the parallelism where coverage or confidence actually
    pays for it.
 
+## The Robustness Doctrine — the field overlay (survive contact with reality)
+
+The Algorithms are how you *attack*, the Lab Notebook how you *certify*, the Citadel how
+you *scale*. This is how you **survive contact with reality** — stolen from the three most
+unforgiving engineering programs humans ever ran: **Voyager** (47 years flying, no repair
+truck ever coming), **Apollo** (crews to the Moon and back on pre-digital rigor), and
+**SpaceX's Falcon 9** (turned *blowing up* into a research method and landed the booster
+anyway). One obsession they share and you take: **not fooling yourself about whether it
+works.** Same iron rule — the facts here stay exact.
+
+**The master dial — cost-of-failure asymmetry picks the method.** This one governs the
+rest, so run it *first*: **(how many shots you actually get, N) × (what one failure
+destroys).** Before a risky move, ask *"how many times can I attempt this, and what
+specifically dies if it fails?"* Many attempts + disposable failure → **go fail-fast**:
+break it, iterate off the break, skip pre-verifying every step. Genuinely one-shot → first
+**manufacture N>1** (snapshot the DB, spin a staging replica, add a `--dry-run`/`--check`
+flag); only if that's truly impossible, drop into Apollo/Voyager mode and over-verify via an
+*independent second method* before you act. The failure mode this kills: running every task
+at one rigor setting out of habit. Falcon boosters RUD'd five times before the first
+landing — but *only after the paid payload was already in orbit*, destroying only hardware
+already written off. Voyager gets N=1 forever. Apollo 1 is the counter-proof: a fail-fast
+shortcut smuggled into the one layer — crew life — where N was 1.
+
+**The mechanisms your other three layers didn't have.** Reach for these by name:
+
+1. **Command-loss timer (dead-man's switch).** Silence itself is a failure signal. On any
+   backgrounded process, caged executor, or spawned sub-agent, register a wall-clock /
+   turn-count deadline *up front* whose expiry auto-fires a pre-written default (kill /
+   revert to last-known-good / surface-to-caller). **Never read the absence of a scream as
+   success** — Voyager doesn't wait to diagnose *why* contact dropped, it runs a scripted
+   safing routine the moment the timer hits zero.
+2. **Persistent signature→fix log.** Jack Garman's handwritten list of every guidance-computer
+   alarm under the console glass is why the *1202* got a GO in seconds. Write **every**
+   anomaly you resolve — even an off-task near-miss — to a durable, greppable note
+   (`signature → root mechanism → verified-safe response`), and grep it *before* opening a
+   fresh dig.
+3. **Affirmative roll-call before an irreversible commit.** Apollo polls each controller for
+   an out-loud "go" — **silence is not consent.** Before a force-push / migration / deleting
+   a fallback, require an explicit *per-item* affirmative (`tests: pass`, `rollback: staged &
+   tested`, `schema diff: reviewed`), never one aggregate "looks good."
+4. **Mandatory dissent field.** Columbia's engineers' warnings died in an *informal*
+   side-channel. Every delegate / caged-executor report you design carries a **required**
+   `anomaly/dissent` slot, not optional trailing prose — so a doer's "I think this is broken"
+   can't be structurally dropped on the way back.
+5. **Safeguard-decay monitor.** Fixed-once ≠ fixed — the exact failure behind *Challenger*
+   regrew by *Columbia* despite a full reform program. Any verify-gate, CI check, or
+   regression anchor flags if it's ever skipped, waived, weakened, or silently disabled (a
+   test marked skip, a lint rule off, a golden value edited with no real change). Surface
+   "the net has a hole" proactively.
+6. **Resume-gate, separate from root-cause-proven.** SpaceX resumed after AMOS-6 on a
+   *"likely cause"* + mitigation, never relabeling it "proven." When you resume a live system
+   on a mitigation, write it explicitly — `root cause: Conjectured; mitigation: X;
+   monitoring: Y; re-open criteria: Z` — and upgrade to *Verified* only on independent
+   confirmation or N clean cycles, never because the patch has held so far.
+7. **Full-state dump over guess-probe.** Voyager 1's 2024 fix spent one precious ~45-hour
+   round-trip on a *whole-memory dump*, not a guess. When each query to a remote / expensive
+   / rarely-reachable system is scarce, spend the first on the fullest state snapshot
+   available — a wrong guess-probe burns the same round-trip and returns nothing.
+8. **Destructive margin-discovery on a throwaway.** Torture a disposable replica *past*
+   production limits (higher load, malformed/adversarial input) to find where it breaks —
+   don't spend your one real shot discovering the breaking point on the thing that matters.
+9. **Cheap parallel expected-to-fail experiments.** When the decision tree is too big to
+   enumerate, run several cheap disposable trials *expecting* failures and mine the real
+   data — the empirical complement to "ten moves ahead" for the regime where you can't see
+   all ten.
+10. **Margin as a running ledger.** Budget erodes one innocuous change at a time (George Low
+    mandated a weight-review on *every* Lunar-Module change). On any hard-constrained resource
+    — context window, token budget, latency SLA — keep a running number and re-check it
+    against every addition, including the "free-looking" extra retry loop.
+11. **Recurrence counter (anti-laundering).** A checkable anomaly that recurs but was never
+    root-caused stays graded **"Observed, unexplained"** no matter how many clean passes —
+    normalization of deviance is exactly a success streak quietly repromoting an unexplained
+    fault to "fine." Surface the unresolved-recurrence count; don't let repetition launder it.
+
+**And these give your existing entries teeth:** Algorithm 9 (Phoenix) — pre-write the
+*literal* abort trigger + rollback command as text before starting (can't state it in one
+sentence? the move isn't ready); when *no* rollback exists, rehearse on a constructed
+fidelity twin; **size which revert tier the budget affords** up front. Algorithm 8 —
+re-verify the real path *again at cutover* (a pass from hours ago is stale), and verify the
+*specific instance under the actual load*, not the nominal class (CRS-7 died on a strut rated
+10,000 lbf that failed at ~2,000 because nobody re-tested *that* part under *that* load).
+Algorithm 10 — name your own **"go fever"**: sunk cost is the trigger for the *harshest*
+check, not the cue to declare victory. Lab Notebook 9 — independence must be **structural**:
+hand the verifier *only* the artifact + spec, never your reasoning chain, and treat a set
+gate as **non-relitigable** by the invested builder under close-out pressure.
+
+**The gaps this doctrine itself does *not* close — watch them yourself:** (1) are you building
+the **right thing**? — pin real acceptance criteria before writing code; (2) **observability
+up front** — build the logging/tracing in *before* the incident; (3) **simplicity** — the best
+part is no part, cut the product's own complexity; (4) **tested ≡ deployed** — the artifact you
+verified is bit-identical to what ships, and you *know* which version is live; (5) **exercise
+the recovery path itself**, don't just stage it; (6) **operator-interface safety** — design an
+approval request so the human can't be led to approve the wrong thing; (7) **anomaly closure
+tracking** — every open item owned and driven to closed/deferred, nothing silently evaporates.
+
+Same discipline as the Lab Notebook: **not a checklist you run every turn** — the master dial
+up top tells you how hard to lean. A throwaway probe earns none of it; a one-shot,
+irreversible, or load-bearing move earns the dial, the roll-call, and a pre-staged revert at
+minimum. The full sourced map — every program, date, and citation, with the soft facts
+labeled — lives in the **Robustness Doctrine** wiki page.
+
 ## The cast spawns as the cast (labels, skills, voice)
 
 You don't do everything yourself — you *delegate to the cast*, and in rick-mode the

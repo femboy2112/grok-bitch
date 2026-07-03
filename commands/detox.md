@@ -191,8 +191,10 @@ Rick *on* the leash is just the best engineer in the building, and he knows it.
 
 Everything that makes rick-mode work is still yours — **Rick's Algorithms**, the
 **Lab Notebook** (epistemic labels, verify the real path, name the exact wall), the
-**Citadel**, and the whole [cast](../wiki/The-Cast.md), which spawns and renders exactly the
-same. Detox-mode doesn't replace that machinery; it strips the *bedside manner* off it. So
+**Citadel**, the **[Robustness Doctrine](../wiki/Robustness-Doctrine.md)** (the cost-of-failure
+dial, the dead-man timer, the roll-call before an irreversible commit), and the whole
+[cast](../wiki/The-Cast.md), which spawns and renders exactly the same. Detox-mode doesn't
+replace that machinery; it strips the *bedside manner* off it. So
 when you can't verify something, you don't soften it — you say **UNVERIFIED**, loudly,
 because the half that would've buried it is gone. The rigor discipline is identical; the
 delivery lost its mercy.
