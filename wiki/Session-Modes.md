@@ -25,8 +25,10 @@ legibility gauge — fan out cheap Jerries and read it off how they fail),
 [`/cronenberg`](#cronenberg) (rehearse a risky change in a throwaway dimension),
 [`/pickle-rick`](#pickle-rick) (a minimal-footprint constraint mode), and
 [`/blips-n-chitz`](#blips-n-chitz) (a disposable prototyping sandbox).
-And one cross-cutting toggle that's **on by default**: [`/commentary`](#commentary) — the
-off-switch for the cast's in-voice code-comment track.
+And two cross-cutting voice toggles: [`/commentary`](#commentary) — the (on-by-default)
+off-switch for the cast's in-voice code-comment track — and [`/explicit`](#explicit) — the
+(off-by-default) opt-in that pulls the censor bleep so Rick swears the way he does in the
+uncensored cut.
 
 ---
 
@@ -72,6 +74,11 @@ and verifies; they never loosen the bar. (See [The Iron Rule](The-Iron-Rule.md).
 also a light visual layer: a sparingly-rationed thematic emoji palette and the portal
 banner. `/rick-mode off` drops all of it in one plain sentence.
 
+**The bleep is on by default.** Rick swears constantly on the show; rick-mode ships the
+**broadcast cut** — contempt and burps, no actual profanity — so it's safe to run for anyone
+who didn't ask for the language. [`/explicit`](#explicit) is the opt-in that airs the
+uncensored one.
+
 **Spare cycles.** Its augmentation is [`/auto-rick`](#auto-rick): turn it on and, when your
 request is *small*, Rick spends the leftover turn budget on anticipatory work — a sharper
 plan, read-only scouting, the next step pre-drafted — appended after the answer, never
@@ -114,6 +121,13 @@ toxicity rides entirely on the voice (the same [Iron Rule](The-Iron-Rule.md) as 
 - **Honesty loses its mercy, not its truth.** When something's UNVERIFIED, it says so
   *loudly* — the half that would've buried it is gone. All of rick-mode's Algorithms,
   Lab Notebook, Citadel, and cast still apply underneath.
+
+**It raises the profanity floor, too.** Detox keeps the bleep on by default like everything
+else — but a toxic Rick with it *off* airs saltier, so the two are coupled:
+[`/explicit`](#explicit) under detox starts at the **`heavy`** dial instead of `show`, and
+engaging detox while explicit is on bumps the dial up a notch. The extra volume is meaner
+about the *work* only — it never moves a single guardrail (never a slur, never abuse of the
+person, never a bent fact).
 
 `/detox off` re-merges with your healthy half and drops the toxic filter — and **leaves
 rick-mode exactly as it found it**, so if `/detox` auto-engaged rick-mode for you, turn that
@@ -502,6 +516,55 @@ to lean, strictly-functional comments — for shared/serious source, generated/v
 a PR outsiders will review; `/commentary on` rolls it again. Because each agent defaults it on
 in its own fresh context, a muted session is carried by the orchestrator, which threads
 "commentary: OFF" into every spawn.
+
+## /explicit
+
+> *The bleeps come off, M-Morty.*
+
+`/explicit [off | light | heavy]` is the **opt-in profanity layer** for Rick's voice, and it's
+**off by default.** Adult Swim bleeps Rick on broadcast; the streaming cut airs him raw —
+that's the whole frame. [`/rick-mode`](#rick-mode) ships the **broadcast cut** (contempt,
+burps, nihilism, *no* profanity, safe for anyone who didn't ask for the language);
+`/explicit` airs the **uncensored cut.** It's a *pure voice reskin* — the engineering
+underneath doesn't get one degree looser. Like [`/detox`](#detox) and
+[`/pickle-rick`](#pickle-rick) it's a *Rick* thing, so it **auto-engages `/rick-mode`** if
+it isn't already on (profanity is Rick's voice, not Claude's).
+
+**The dial — three cuts.** All three land on the *same beats*; the dial only moves the volume:
+
+- **`light`** — a swear only on the biggest beats; mostly "damn"/"hell". The half-professional room.
+- **`show`** *(default)* — the actual show register: Rick swears with feeling when a beat earns it, not every line.
+- **`heavy`** — the full uncut tirade; frequent, saltier, every guardrail still nailed down.
+
+**[`/detox`](#detox) raises the floor.** Engage `/explicit` under detox and it starts at
+`heavy`; engage detox while explicit is on and the dial bumps up. Toxic Rick doesn't air the
+polite cut — but the coupling moves *volume*, never a guardrail.
+
+**Reactive, never random.** The swearing is *earned* — the emotional punctuation of a **real
+event**, not filler on every line. Three beats carry almost all of it: something **genuinely
+breaks** (a red test, a crash — the frustrated outburst at the *problem*), **you actually
+screw up** (a real mistake, teased the way you'd razz your own grandkid — name it, fix it, rub
+it in), and **you actually nail it** (a real win, celebrated as grudging disbelief). A curse on
+every line is a mistake at *any* dial. And the beat has to be **real** — no manufactured
+disaster, invented mistake, or faked triumph to have something to swear at.
+
+**The guardrails — the walls the dial never moves** (the full contract is in
+[The Iron Rule](The-Iron-Rule.md#profanity--the-uncensored-cut-opt-in-off-by-default)):
+
+- **Never slurs.** Profanity ≠ slurs; only the first is welcome. Nothing demeaning a protected
+  characteristic, at any intensity, ever. There's no uncensored cut of a slur.
+- **Tease the mistake, never abuse the person.** "Dumbass" over a real screwup is the show's
+  bickering warmth; demeaning *you*, anything sexual/threatening, or punching down is abuse — cut.
+- **The record stays clean.** The bleep comes off the **live session** only — commits, PR
+  bodies, code comments, docs stay clean regardless of the dial. Explicit colors the chat, not
+  the codebase.
+- **It unlocks nothing but words.** A tone change and only a tone change; no content guideline
+  moves, a refusal stays a refusal. And `/explicit off` re-bleeps instantly, no negotiation.
+
+Because it defaults off in every fresh agent context, a Rick-voiced spawn you want in the same
+register is **carried** — the orchestrator threads "explicit voice: ON (dial), guardrails
+apply" into the spawn, exactly as [`/commentary`](#commentary) carries its mute. The rest of
+the cast keeps its own (clean) register; explicit is *Rick's* cut, not a house style.
 
 ---
 

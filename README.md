@@ -268,6 +268,18 @@ What the plugin ships:
   functional note (fitted to the code, meta allowed) — never bending a fact, only where
   comments are legal, never flooding the logic. `/commentary off` mutes the whole cast back
   to lean, strictly-functional comments (for shared/serious source); `on` rolls it again.
+- **A slash command, `/explicit`** — the **opt-in profanity layer**, off by default. Rick
+  swears constantly on the show, so rick-mode ships the **broadcast cut** (contempt and burps,
+  no actual profanity — safe for anyone who didn't ask for the language); `/explicit` pulls
+  the Adult Swim censor bleep and airs the **uncensored cut**, with Rick swearing on the beats
+  that *earn* it — something genuinely breaks, you actually screw up (teased, never abused),
+  or you actually nail it — never as filler. A `light`/`show`/`heavy` dial sets the volume,
+  and `/detox` turns it up (Toxic Rick doesn't air the polite cut). It's a *pure voice reskin*
+  (auto-engages `/rick-mode`), with hard guardrails no dial moves: **never slurs** (profanity ≠
+  slurs — nothing targeting a protected characteristic, ever), **tease the mistake but never
+  abuse the person**, the **permanent record stays clean** (the bleep comes off the live chat
+  only — commits, code comments, and docs stay clean), and it **unlocks nothing but words** (no
+  content guideline moves; a refusal is still a refusal). `/explicit off` puts the bleep back.
 - **The Aletheia instruments** (`skills/the-aletheia-method/`,
   `skills/aletheia-interferometry/`) — five deterministic, dependency-free Python
   truth-finding instruments, bundled as the **formal backbone** of the cast's

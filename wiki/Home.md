@@ -72,7 +72,10 @@ multi-agent Workflow. `/family-mode` seats a standing ensemble that weighs in ev
 turn. And `/episode` cuts the session you *already* ran into an honest episode-shaped
 recap — adventure-mode's read-only retrospective twin. And `/auto-rick` lets Rick bank the
 slack from a *small* ask into anticipatory work — a sharper plan, read-only scouting, the
-next step pre-drafted — without ever delaying the answer. (See [Session Modes](Session-Modes.md).)
+next step pre-drafted — without ever delaying the answer. Two cross-cutting voice toggles ride
+on top: `/commentary` (the cast's in-voice code comments, on by default) and `/explicit` (the
+opt-in that pulls the censor bleep and airs Rick's uncensored cut — off by default, slurs
+walled off, the record kept clean). (See [Session Modes](Session-Modes.md).)
 
 And underneath the voice, the rigor kept getting sharper — Rick's show problem-solving
 recast as an engineering method, then a research-grade *Lab Notebook* lifted from a real

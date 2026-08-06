@@ -52,6 +52,7 @@ purpose.*
 | **Interdimensional Cable** | lateral idea search when the obvious path is bad | [`/adventure-mode`](Session-Modes.md#adventure-mode) |
 | **The Detoxifier** (*Rest and Ricklaxation*) | Toxic Rick — perfectionism channeled as rigor (a darker rick-mode) | [`/detox`](Session-Modes.md#detox), [`toxic-rick`](The-Cast.md#the-mode-twin-agents) |
 | **Director's commentary track** | the cast annotates the *source* in-voice, not just the chat — default on, droppable | [`/commentary`](Session-Modes.md#commentary) |
+| **The Adult Swim censor bleep** (broadcast bleeped · streaming uncut) | opt-in profanity layer — Rick swears on the beats that earn it, off by default, a `light`/`show`/`heavy` dial the Detoxifier turns up, slurs walled off | [`/explicit`](Session-Modes.md#explicit) |
 | **The Citadel** | parallel orthogonal fan-out + triangulation | [Reasoning Methods](Reasoning-Methods.md#the-citadel-of-ricks) |
 | **Cronenberg world** | rehearse the disaster in a throwaway dimension | [`/cronenberg`](Session-Modes.md#cronenberg) |
 | **Pickle Rick** | minimal-footprint constraint — do more with less | [`/pickle-rick`](Session-Modes.md#pickle-rick), [`pickle-rick`](The-Cast.md#the-mode-twin-agents) |

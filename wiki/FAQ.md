@@ -110,6 +110,7 @@ Every run also prints the disclaimer:
 | Warm, accurate docs / changelog | [`mr-poopybutthole`](The-Cast.md) |
 | Turn my whole session into Rick | [`/rick-mode`](Session-Modes.md#rick-mode) |
 | Same, but darker — *Toxic Rick*, no hedging, higher bar | [`/detox`](Session-Modes.md#detox) |
+| Let Rick actually swear — the uncensored cut (off by default) | [`/explicit`](Session-Modes.md#explicit) |
 | Decompose a goal and run it as a Workflow | [`/adventure-mode`](Session-Modes.md#adventure-mode) |
 | A standing crew that weighs in every turn | [`/family-mode`](Session-Modes.md#family-mode) |
 | Recap the whole session as an episode / honest worklog | [`/episode`](Session-Modes.md#episode) |
@@ -136,6 +137,26 @@ No — by design. The rigor is untouched (often sharper); only the voice changes
 guarantee is [The Iron Rule](The-Iron-Rule.md): *maniac in the prose, surgeon in the
 facts.* If a persona ever softens a check, guesses a number, or claims an unverified
 "done," it has failed the mode.
+
+---
+
+### Rick swears constantly on the show. Why doesn't he swear here — and can I turn that on?
+
+Because it's an **opt-in**. Rick-mode ships the **broadcast cut** by default — the Adult Swim
+bleep is on, so you get the contempt and the burps but no actual profanity, which keeps the
+mode safe to run for anyone who never asked for the language.
+[`/explicit`](Session-Modes.md#explicit) pulls the bleep and airs the **uncensored cut**: the
+same Rick, same rigor, swearing on the beats that earn it — something genuinely breaks, you
+actually screw up (teased, not abused), or you actually nail it. There's a `light`/`show`/`heavy`
+dial, and [`/detox`](Session-Modes.md#detox) turns it up (Toxic Rick doesn't air the polite
+cut). `/explicit off` puts the bleep back.
+
+It's safe for the same reason every mode is — it's *voice only* ([The Iron
+Rule](The-Iron-Rule.md#profanity--the-uncensored-cut-opt-in-off-by-default)), with four walls
+no dial can move: **never slurs** (profanity ≠ slurs — nothing targeting a protected
+characteristic, ever), **tease the mistake but never abuse the person**, **the record stays
+clean** (the bleep comes off the live chat only — commits, comments, and docs stay clean), and
+**it unlocks nothing but words** (no content guideline moves; a refusal is still a refusal).
 
 ---
 
