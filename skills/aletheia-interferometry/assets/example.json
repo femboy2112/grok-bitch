@@ -1,0 +1,184 @@
+{
+  "schema_version": "1.0",
+  "analysis_name": "claim-source latent invariant example",
+  "hypotheses": [
+    {
+      "id": "H_real_correct_source",
+      "label": "the invariant is real and the stated source is correct",
+      "working_weight": 0.4
+    },
+    {
+      "id": "H_real_wrong_source",
+      "label": "the invariant is real but the stated source is wrong",
+      "working_weight": 0.35
+    },
+    {
+      "id": "H_artifact",
+      "label": "the pattern is a shared measurement artifact",
+      "working_weight": 0.25
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E_forward_a",
+      "source_family": "instrument-a",
+      "source_map": "object -> configuration A -> instrument A -> raw record",
+      "dependence_cluster": "instrument-a-primary",
+      "partition": "train",
+      "kappa": 0.95,
+      "reliability": 0.95,
+      "phi_pathway": "defined",
+      "rho_risk": 0.2,
+      "probe_measure": 1.0,
+      "transport": {
+        "phase_basis": "back-transported invariant residual",
+        "description": "known configuration-A orientation is inverted before comparison"
+      },
+      "responses": {
+        "H_real_correct_source": {"score": 0.9},
+        "H_real_wrong_source": {"score": 0.9},
+        "H_artifact": {"score": -0.6}
+      }
+    },
+    {
+      "id": "E_forward_b",
+      "source_family": "instrument-b",
+      "source_map": "object -> configuration B -> independent instrument B -> raw record",
+      "dependence_cluster": "instrument-b-primary",
+      "partition": "train",
+      "kappa": 0.9,
+      "reliability": 0.9,
+      "phi_pathway": "defined",
+      "rho_risk": 0.2,
+      "probe_measure": 1.0,
+      "transport": {
+        "phase_basis": "back-transported invariant residual",
+        "description": "configuration-B parity reversal is corrected"
+      },
+      "responses": {
+        "H_real_correct_source": {"score": 0.8},
+        "H_real_wrong_source": {"score": 0.8},
+        "H_artifact": {"score": -0.5}
+      }
+    },
+    {
+      "id": "E_provenance_trace",
+      "source_family": "lineage-audit",
+      "source_map": "signed raw record -> immutable event log -> independent lineage checker",
+      "dependence_cluster": "lineage-audit-primary",
+      "partition": "train",
+      "kappa": 0.85,
+      "reliability": 0.95,
+      "phi_pathway": "defined",
+      "rho_risk": 0.4,
+      "probe_measure": 0.8,
+      "transport": {
+        "phase_basis": "source-map adequacy axis",
+        "description": "lineage consistency supports the stated source rather than content alone"
+      },
+      "responses": {
+        "H_real_correct_source": {"score": 0.75},
+        "H_real_wrong_source": {"score": -0.8},
+        "H_artifact": {"score": -0.2}
+      }
+    },
+    {
+      "id": "E_echo_1",
+      "source_family": "secondary-reports",
+      "source_map": "secondary report copied from one release",
+      "dependence_cluster": "single-release-echo",
+      "partition": "train",
+      "reliability": 0.35,
+      "phi_pathway": "partial",
+      "rho_risk": 0.5,
+      "probe_measure": 1.0,
+      "transport": {
+        "phase_basis": "reported support/refute axis",
+        "description": "reported sign only; no independent raw access"
+      },
+      "responses": {
+        "H_real_correct_source": {"score": -0.7},
+        "H_real_wrong_source": {"score": 0.7},
+        "H_artifact": {"score": 0.6}
+      }
+    },
+    {
+      "id": "E_echo_2",
+      "source_family": "secondary-reports",
+      "source_map": "another secondary report copied from the same release",
+      "dependence_cluster": "single-release-echo",
+      "partition": "train",
+      "reliability": 0.35,
+      "phi_pathway": "partial",
+      "rho_risk": 0.5,
+      "probe_measure": 1.0,
+      "transport": {
+        "phase_basis": "reported support/refute axis",
+        "description": "same reported sign; shared provenance retained"
+      },
+      "responses": {
+        "H_real_correct_source": {"score": -0.7},
+        "H_real_wrong_source": {"score": 0.7},
+        "H_artifact": {"score": 0.6}
+      }
+    },
+    {
+      "id": "E_holdout_c",
+      "source_family": "instrument-c",
+      "source_map": "fresh object instance -> configuration C -> blind instrument C",
+      "dependence_cluster": "instrument-c-holdout",
+      "partition": "holdout",
+      "kappa": 0.9,
+      "reliability": 0.95,
+      "phi_pathway": "defined",
+      "rho_risk": 0.1,
+      "probe_measure": 1.0,
+      "transport": {
+        "phase_basis": "back-transported invariant residual",
+        "description": "preregistered configuration-C inverse map"
+      },
+      "responses": {
+        "H_real_correct_source": {"score": 0.85},
+        "H_real_wrong_source": {"score": 0.85},
+        "H_artifact": {"score": -0.7}
+      }
+    }
+  ],
+  "candidate_probes": [
+    {
+      "id": "Q_source_substitution",
+      "label": "replace only the claimed source while preserving the measurement path",
+      "predictions": {
+        "H_real_correct_source": -1.0,
+        "H_real_wrong_source": 1.0,
+        "H_artifact": 0.0
+      },
+      "independence": 0.9,
+      "path_opening": 1.0,
+      "source_map_resolution": 1.0,
+      "cost": 2.0
+    },
+    {
+      "id": "Q_repeat_same_configuration",
+      "label": "repeat the already-used configuration with the same lineage",
+      "predictions": {
+        "H_real_correct_source": 0.8,
+        "H_real_wrong_source": 0.8,
+        "H_artifact": 0.5
+      },
+      "independence": 0.2,
+      "path_opening": 0.2,
+      "source_map_resolution": 0.0,
+      "cost": 1.0
+    }
+  ],
+  "settings": {
+    "support_axis": 0.0,
+    "refute_axis": 3.141592653589793,
+    "bright_visibility": 0.75,
+    "dark_visibility": 0.35,
+    "min_power": 0.05,
+    "axis_halfwidth": 0.5235987755982988,
+    "holdout_partitions": ["holdout"]
+  }
+}

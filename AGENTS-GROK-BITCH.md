@@ -1,9 +1,14 @@
 # Driving grok-bitch (for Claude Code)
 
 `grok-bitch` lets you offload **mechanical, well-specified, verifiable** work to
-grok so you don't waste your own rigor on it. grok is dumb and untrusted; the
-harness cages it and hands you a structured verdict. **Always re-check grok's
-output** — it prints a disclaimer to that effect on every run.
+**Morty** — a bounded, untrusted-by-default Claude subagent — so you don't waste your
+own rigor on it. Morty is dim and untrusted; the **cage discipline** bounds him and you
+independently verify what he claims. **Always re-check Morty's output** — he ends every
+report with a disclaimer to that effect.
+
+> **grok is gone.** This was once a CLI that caged an external **grok** model; grok and
+> the CLI have been retired. "Morty" is now a caged Claude subagent, the cage is a
+> discipline, and the name `grok-bitch` stays as the brand.
 
 ## When to delegate (and when not)
 
@@ -16,71 +21,71 @@ certification/verdict, proofs, or touching inviolable state. Those are yours.
 
 ## The call
 
-```bash
-grok-bitch run "<one precise, self-contained task>" --dir <workspace> [--profile P] [--verify "CMD"]
+Spawn the caged executor with the **Agent tool**:
+
+- **`grok-bitch:rick`** — the handler. Hand him the goal, the workspace dir, and a
+  verify command; he decomposes it, cradles Morty step by step, independently verifies,
+  and returns a clean verdict. Preferred for anything non-trivial.
+- **`grok-bitch:morty`** — a single bounded, mechanical step you'll verify yourself.
+
+```text
+Agent(subagent_type="grok-bitch:rick",
+      prompt="<one precise, self-contained goal>. Workspace: <dir>.
+              Verify with: <CMD>. Guard (do not touch): <protected paths>.")
 ```
 
-- Be specific and bounded. grok does exactly what you say, badly if vague.
-- Parse **stdout** as JSON. Branch on **`exit_code`** / `verdict`.
-- Pre-flight once per session with `grok-bitch doctor`.
+- Be specific and bounded. Morty does exactly what you say, badly if vague.
+- Read the **outcome**, then **verify the real path yourself** — never trust the word.
 
-## Pick a profile
+## The cage discipline (what keeps offloading safe)
 
-- `readonly` — read & report only; grok cannot write or run shell. Safe default for "look at X".
-- `scratch` *(default)* — write scratch files & run code, confined to `--dir`.
-- `edit` — modify project files. **Always pair with `--verify`.**
-- `online` — only when the task truly needs the web.
+- **Bounded scope** — one step, confined to the workspace. No wandering.
+- **Protected paths** — name the inviolable ones (e.g. `docs/core`, `docs/papers`,
+  `canonical/`, `.git/hooks`); if one is touched it's reverted and reported, never
+  blind-retried.
+- **Verify gate** — pair any edit with a verify command; not "done" until it's green
+  *and you re-ran it*.
+- **Never self-certify** — the report is a claim, not proof; verify the path a user
+  actually runs, plus a static pass (linter/type-checker) for branches one run skips.
+- **Hand back if too big; never push** — nothing irreversible or outward on the
+  executor's say-so.
 
-## Branch on the result
+## Branch on the outcome
 
 ```
-0  success            → use it (then double-check)
-10 guard_violation    → grok tried to touch an inviolable path; it was reverted. Do NOT retry blindly.
-11 verify_failed      → grok's work failed the gate. Read .verify.tail, fix the task, or do it yourself.
-12 grok_error         → grok broke. Read .grok.stderr_tail.
-13 timeout            → task too big / stuck. Narrow it or raise --timeout.
-15 resource_exceeded  → grok tried to OOM/flood the box; killed. Narrow the task.
-14 preflight_error    → your args/env are wrong. Read .error.
-16 regression         → a --anchor golden value drifted (even if verify passed). A silent regression.
-17 no_consensus       → --consensus attempts disagreed; tree left clean. Don't trust any single one.
+done          → use it (then double-check yourself)
+guard-touch   → Morty touched an inviolable path; it was reverted. Do NOT retry blindly.
+verify-failed → Morty's work failed the gate. Read the failure tail, fix the task, or do it yourself.
+too-big/stuck → too big, wedged, or gone silent (a hang is a FAILURE). Narrow it or take it back.
+executor-error→ Morty broke / came back garbled. Reformulate smaller.
+handed-back   → Morty bailed honestly. Re-scope it.
 ```
 
-```bash
-out=$(grok-bitch run "..." --dir /repo --profile edit --verify "make check"); rc=$?
-verdict=$(echo "$out" | jq -r .verdict)
-[ "$rc" -eq 0 ] && echo "$out" | jq -r .changes   # review what changed, then verify yourself
-```
+Precedence: **guard-touch > verify-failed > too-big/stuck > executor-error > done.** A
+safety breach always surfaces.
 
-## Protected paths are automatic
+## For truth-hunts, not grunt-work
 
-`docs/core`, `docs/papers`, `canonical/`, `.git/hooks` are auto-guarded if present.
-Add more with `--guard PATH` (repeatable) or a `.grok-bitch.guards` file in the repo.
-Anything guarded that changes → the run fails (exit 10) and is reverted. You never
-have to trust grok to respect them.
-
-## Resource caps are on by default
-
-grok's whole process tree is capped (default 4 GB / 4 cores, no swap) via a kernel
-cgroup. A `make check` that needs more memory: raise `--mem-max`. Never use
-`--no-resource-limit` on a shared box — it can OOM the machine.
+When the job is to *find or trust a truth* rather than grind out mechanical labor, reach
+for the bundled **Aletheia Method** (`skills/the-aletheia-method/`) and its
+**Interferometry instruments** (`skills/aletheia-interferometry/`): triangulate from
+independent blind bearings (Council Rick, the Citadel Ricks), build a discriminating
+probe yourself, and certify dominance, not truth. They auto-invoke on their own.
 
 ## Examples
 
-```bash
-# agi2: a throwaway probe (docs/core & docs/papers auto-guarded)
-grok-bitch run "Create scratch/rank_probe.py that loads the encoder, prints output \
-eff-rank over 50 steps; run it; paste the numbers. Touch nothing else." \
-  --dir /home/leah/agi2 --profile scratch
+```text
+# A throwaway probe (guard docs/core & docs/papers if present)
+Agent(subagent_type="grok-bitch:morty",
+      prompt="Create scratch/rank_probe.py that loads the encoder and prints output
+              eff-rank over 50 steps; run it; paste the numbers. Touch nothing else.
+              Workspace: /home/leah/agi2. Guard: docs/core, docs/papers. Report the outcome.")
 
-# agi2: mechanical edit gated on the real CI
-grok-bitch run "Add a boundedness regression test for the new cache cap in \
-agi/language/lexicon.py, mirroring the existing ones. Additive only." \
-  --dir /home/leah/agi2 --profile edit --verify "timeout 600 make check"
-
-# Collatz: bulk numerics (canonical/ auto-guarded, exact-arith discipline is yours to state)
-grok-bitch run "Run tools/spectral.py for r=2 over the t-grid in scratch/grid.json, \
-write results to scratch/out.json. Do not edit anything under canonical/." \
-  --dir /home/leah/Collatz/C --profile scratch --verify "python3 tools/anchors.py"
+# A mechanical edit gated on the real CI, cradled by Rick
+Agent(subagent_type="grok-bitch:rick",
+      prompt="Add a boundedness regression test for the new cache cap in
+              agi/language/lexicon.py, mirroring the existing ones. Additive only.
+              Workspace: /home/leah/agi2. Verify with: timeout 600 make check. Guard: docs/core.")
 ```
 
-Remember: grok is the bitch. You are the one accountable for the result. Verify.
+Remember: Morty is the bitch. You are the one accountable for the result. Verify.

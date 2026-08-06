@@ -1,0 +1,104 @@
+{
+  "title": "Target structure versus a wrong-source proxy",
+  "settings": {
+    "coherence_threshold": 0.9,
+    "minimum_class_posterior": 0.01
+  },
+  "hypotheses": [
+    {
+      "id": "structure",
+      "label": "The target structure generates the invariant",
+      "prior": 0.4,
+      "source_map": "target_structure",
+      "mechanism": "The measured relation is intrinsic to the object under study.",
+      "scope": "Declared benchmark and admissible transformations."
+    },
+    {
+      "id": "proxy",
+      "label": "A shared preprocessing proxy generates the same invariant",
+      "prior": 0.4,
+      "source_map": "shared_preprocessing",
+      "mechanism": "Leakage or a common transform induces the observed relation.",
+      "scope": "Pipelines inheriting the same source path."
+    },
+    {
+      "id": "noise",
+      "label": "The apparent invariant is a finite-window coincidence",
+      "prior": 0.2,
+      "source_map": "sampling_noise",
+      "mechanism": "Selection and finite sampling create a transient fit.",
+      "scope": "Current fitting window only."
+    }
+  ],
+  "probes": [
+    {
+      "id": "benchmark_fit",
+      "label": "Original benchmark",
+      "outcomes": ["pass", "fail"],
+      "predictions": {
+        "structure": {"pass": 0.95, "fail": 0.05},
+        "proxy": {"pass": 0.95, "fail": 0.05},
+        "noise": {"pass": 0.45, "fail": 0.55}
+      },
+      "observed": "pass",
+      "independence_group": "dataset_A_pipeline",
+      "reliability": 0.95
+    },
+    {
+      "id": "same_pipeline_rerun",
+      "label": "Rerun through the same pipeline",
+      "outcomes": ["pass", "fail"],
+      "predictions": {
+        "structure": {"pass": 0.94, "fail": 0.06},
+        "proxy": {"pass": 0.94, "fail": 0.06},
+        "noise": {"pass": 0.50, "fail": 0.50}
+      },
+      "observed": "pass",
+      "independence_group": "dataset_A_pipeline",
+      "reliability": 0.95
+    },
+    {
+      "id": "more_same_pipeline",
+      "label": "More samples through the same source path",
+      "outcomes": ["pass", "fail"],
+      "predictions": {
+        "structure": {"pass": 0.95, "fail": 0.05},
+        "proxy": {"pass": 0.95, "fail": 0.05},
+        "noise": {"pass": 0.35, "fail": 0.65}
+      },
+      "independence_group": "dataset_A_pipeline",
+      "reliability": 0.95,
+      "calibration": {"positive_control": true, "negative_control": true},
+      "cost": 1.0
+    },
+    {
+      "id": "independent_holdout",
+      "label": "Fresh holdout with independent preprocessing",
+      "outcomes": ["pass", "fail"],
+      "predictions": {
+        "structure": {"pass": 0.88, "fail": 0.12},
+        "proxy": {"pass": 0.62, "fail": 0.38},
+        "noise": {"pass": 0.40, "fail": 0.60}
+      },
+      "independence_group": "holdout_B",
+      "reliability": 0.90,
+      "calibration": {"positive_control": true, "negative_control": true},
+      "cost": 1.5
+    },
+    {
+      "id": "source_swap",
+      "label": "Mask or swap the claimed source while holding ordinary content fixed",
+      "outcomes": ["stable", "changes"],
+      "predictions": {
+        "structure": {"stable": 0.92, "changes": 0.08},
+        "proxy": {"stable": 0.08, "changes": 0.92},
+        "noise": {"stable": 0.50, "changes": 0.50}
+      },
+      "independence_group": "source_intervention",
+      "source_sensitive": true,
+      "reliability": 0.95,
+      "calibration": {"positive_control": true, "negative_control": true},
+      "cost": 1.0
+    }
+  ]
+}

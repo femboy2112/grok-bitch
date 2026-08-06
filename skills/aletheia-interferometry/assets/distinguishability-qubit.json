@@ -1,0 +1,9 @@
+{
+  "_comment": "Qubit mode: three candidate 2-level states as Bloch vectors [rx,ry,rz]. This is a GENUINE quantum-information calculation in closed form (trace distance = half the Bloch-vector distance; Uhlmann fidelity; Helstrom optimal single-shot probability; the optimal measurement axis = the Bloch direction of rho-sigma). |0>=(0,0,1) vs |1>=(0,0,-1) are orthogonal (trace distance 1, perfectly distinguishable); |0> vs |+>=(1,0,0) are the canonical partially-distinguishable pair (trace distance 1/sqrt2). Use this mode when a coherent representation genuinely exists (a real quantum experiment, or a mathematical object faithfully modeled as a 2-level system).",
+  "mode": "qubit",
+  "states": {
+    "zero": [0.0, 0.0, 1.0],
+    "one": [0.0, 0.0, -1.0],
+    "plus": [1.0, 0.0, 0.0]
+  }
+}

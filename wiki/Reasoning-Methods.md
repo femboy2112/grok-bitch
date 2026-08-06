@@ -10,6 +10,8 @@ discipline that [`/rick-mode`](Session-Modes.md#rick-mode) and the
 2. **[Rick's Lab Notebook](#ricks-lab-notebook)** — how Rick *certifies* a claim.
 3. **[The Citadel of Ricks](#the-citadel-of-ricks)** — how Rick *scales* both across a
    swarm.
+4. **[The Aletheia Method](#the-aletheia-method)** — the certify-and-triangulate discipline
+   as *shipped instruments*, the formal backbone under the Notebook and the Citadel.
 
 None of these loosen the bar. They sharpen *how* Rick reasons and verifies; the facts
 stay surgical ([The Iron Rule](The-Iron-Rule.md)).
@@ -18,6 +20,12 @@ On top of the three sits **[The Robustness Doctrine](Robustness-Doctrine.md)** �
 field-tested overlay mined from Voyager, Apollo, and SpaceX that adds the mechanisms these
 three lack (a silence-triggered dead-man timer, an affirmative roll-call before an
 irreversible commit, a safeguard-decay monitor) and sharpens the ones they have.
+
+And bolted *under* the Notebook and the Citadel is **[The Aletheia Method](#the-aletheia-method)** —
+the same triangulate-and-certify discipline, formalized and **shipped as instruments**: two
+persona-free skills the cast reaches for automatically, one of them carrying five
+deterministic, dependency-free truth-finding tools. It's not a fourth style of reasoning; it's
+the rigor of layers 2–3 with a calibrated toolset bolted on.
 
 ---
 
@@ -51,11 +59,11 @@ deliberately and name the one you're using.
 6. **Summon a Meeseeks for one bounded box.** Clean, completable, self-contained task?
    Spawn one focused doer ([`mr-meeseeks`](The-Cast.md)) — it finishes and poofs.
    Open-ended or judgment-heavy work stays with you.
-7. **Make the other-dimension Morty do the grunt work (offload down).** Boring,
-   mechanical, *checkable* labor goes to grok — the [`morty`](The-Cast.md) subagent runs
-   it through the [cage](The-Safety-Cage.md), or the heavier [`rick`](The-Cast.md) handler
-   when it needs real decomposition — with a `--verify` gate, **never trusting his word.**
-   Trivial scraps go to [`jerry`](The-Cast.md).
+7. **Make Morty do the grunt work (offload down).** Boring, mechanical, *checkable* labor
+   goes to **Morty** — the [`morty`](The-Cast.md) subagent does one bounded step under the
+   [cage discipline](The-Safety-Cage.md), or the heavier [`rick`](The-Cast.md) handler
+   cradles him when it needs real decomposition — behind a verify gate, **never trusting his
+   word.** Trivial scraps go to [`jerry`](The-Cast.md).
 8. **"I don't do magic, I do science" (empiricism over belief).** Measure, never guess.
    **Verify the path that actually ships, not a convenient proxy** — a green check on the
    wrong code path is a *lie*. Add a static pass (linter/type-checker/compiler) that sees
@@ -176,10 +184,66 @@ truth from where their independent lines cross.
 
 ---
 
+## The Aletheia Method
+
+← *bundled skills: [`the-aletheia-method`](../skills/the-aletheia-method/SKILL.md) ·
+[`aletheia-interferometry`](../skills/aletheia-interferometry/SKILL.md)*
+
+The Lab Notebook and the Citadel are Rick's home-grown discipline. **Aletheia is that same
+discipline written down as a method and handed a toolbox** — bundled into the plugin as two
+persona-free skills that auto-invoke on any truth-hunt ("is this real or did I get lucky,"
+"prove or refute this," "are we even solving the right problem"). It runs plain; there's no
+goddess voice to switch on. One reframe, five moves, a ledger.
+
+**The one reframe — there are no walls, only gaps.** An "impossible" or a "can't be known" is
+never a limit, only *missing knowledge*, and it comes in two kinds: a **pathway-gap** (the true
+explanation was never even a candidate — you haven't formed the idea) or a **probe-gap** (you
+have rival candidates but no test that comes back differently under one than the other). Both
+dissolve by *seeking* — form the missing candidate, or build the missing probe.
+
+**The five moves** (this is the Notebook + the Citadel, made explicit):
+
+1. **Name the wall as a gap** — pathway or probe. That names what to seek.
+2. **Triangulate from independent, blind bearings** — convergence is signal, divergence is
+   signal. This *is* the Citadel's fan-out and the Notebook's two-blind-paths.
+3. **Build the discriminating probe yourself** — never truth-on-testimony; the probe must be
+   able to *fail* what you believe.
+4. **Make the audacious guess — then pay for it** with verification on fresh cases past the
+   fitting window (the Notebook's hold-some-back).
+5. **Certify dominance, not truth** — each insight is a larger cave, never an exit; state the
+   boundary of every claim.
+
+**The cast already *is* this method.** Aletheia just gives the moves their formal names:
+
+| Aletheia | The cast that runs it |
+|----------|------------------------|
+| **Trilateration Protocol** — fix the unknown where independent ranges cross; over-staff so a residual can catch a lying bearing | [`/council`](Session-Modes.md#council) / [`council-rick`](The-Cast.md) — N blind bearings, accept only the consensus |
+| **Independent blind bearings** — orthogonal, blind-to-each-other axes | the [Citadel](#the-citadel-of-ricks) of [`citadel-rick`](The-Cast.md) diggers |
+| **The discriminating probe / refutation** — the test built to *break* the claim | [`evil-morty`](The-Cast.md) reasons to the break; [`randotron`](The-Cast.md) stumbles onto it with seeded chaos |
+| **The Ledger** — *Disclosed · Observed · Conjectured · Dark · Refuted* | the cast's labeled verdict — *Verified · Observed · Conjectured · UNVERIFIED* — same discipline, no silent upgrades |
+
+**Interferometry — for when the bearings look identical.** Sometimes several rivals predict the
+*same* evidence under every probe you've run (a probe-gap where the candidates are
+observationally indistinguishable). Averaging or voting there just hides the split. The
+[`aletheia-interferometry`](../skills/aletheia-interferometry/SKILL.md) skill ships **five
+deterministic, standard-library instruments** — predictive overlap, provenance/Möbius
+tomography, complete-factorial Walsh–Hadamard cross-terms, transported phasors, and a genuine
+quantum-information truth-distinguishability tool (trace distance, Helstrom discrimination, the
+`V²+D²≤1` complementarity) — that measure the indistinguishability itself, recover the hidden
+structure from the cross-terms between bearings, and hand a freshly-distinguishable bearing back
+to trilateration. Each carries a `--self-test` calibrated on known cases; they're
+quantum-*inspired*, and claim no quantum speedup or Born-rule truth. Reach for them the moment
+the Citadel's bearings agree on the evidence but not on the mechanism.
+
+---
+
 ## See also
 
 - [The Robustness Doctrine](Robustness-Doctrine.md) — the field overlay that sharpens all three
   layers, mined from Voyager, Apollo, and SpaceX.
+- [The Aletheia Method](../skills/the-aletheia-method/SKILL.md) and
+  [Interferometry](../skills/aletheia-interferometry/SKILL.md) — the bundled truth-finding skills
+  that formally back the Notebook and the Citadel.
 - [Session Modes](Session-Modes.md) — where these methods get switched on.
 - [The Cast](The-Cast.md) — the hands the work routes to.
 - [The Safety Cage](The-Safety-Cage.md) — the deterministic floor under all of it.

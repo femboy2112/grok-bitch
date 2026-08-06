@@ -15,7 +15,7 @@ purpose.*
 | Show element | Engineering role | Lives in |
 |---|---|---|
 | **Rick Sanchez** | the 300-IQ orchestrator/handler that decomposes & verifies | [`rick`](The-Cast.md), [`/rick-mode`](Session-Modes.md#rick-mode) |
-| **Morty** (= grok) | the caged, untrusted grunt executor | [`morty`](The-Cast.md) |
+| **Morty** (once grok, now a bounded Claude subagent) | the caged, untrusted grunt executor | [`morty`](The-Cast.md) |
 | **Mr. Meeseeks** | one bounded task, start to verified finish, then poof | [`mr-meeseeks`](The-Cast.md) |
 | **Jerry** | trivial, cheap, low-stakes scraps — *and* the inverted floor-gauge: legibility read off what the dumbest reader can't grasp | [`jerry`](The-Cast.md), [`/jerry-test`](Session-Modes.md#jerry-test) |
 | **Citadel Rick** | one orthogonal fan-out bearing / rabbit-hole dig | [`citadel-rick`](The-Cast.md) |
@@ -44,8 +44,8 @@ purpose.*
 | **Portal gun** | relocate, don't reinvent | Algorithm #3 |
 | **Microverse battery** | encapsulate, and name the hidden cost | Algorithm #5 |
 | **Operation Phoenix** | pre-stage the revert before the risky move | Algorithm #9 |
-| **Time Crystal** | golden-value regression anchors — catch silent drift | `grok-bitch --anchor` |
-| **Council of Ricks (in the cage)** | N-attempt consensus by content signature | `grok-bitch --consensus N` |
+| **Time Crystal** | golden-value regression anchors — catch silent drift | [guard+revert discipline](The-Safety-Cage.md#guards--the-inviolable-paths) |
+| **Council of Ricks (in the cage)** | N-attempt consensus by content signature, each attempt caged | [`/council`](Session-Modes.md#council), [`council-rick`](The-Cast.md) |
 | **The Jerry test** (Jerry = the benchmark of average) | the **inverted instrument** — a legibility/complexity gauge read off how the floor-level reader *fails*, not how he succeeds (`/council`'s triangulation with the meaning flipped: Jerries agreeing = *obvious*, not *true*) | [`/jerry-test`](Session-Modes.md#jerry-test), [`jerry`](The-Cast.md) |
 | **"I do science, not magic"** | empiricism — verify the path that actually ships | Algorithm #8 |
 | **"Nobody exists on purpose"** | kill darlings without ego; ship the correct thing | Algorithm #10 |
@@ -68,14 +68,14 @@ Honest about what's a real next step versus what's flavor:
 - **Get Schwifty → a release ceremony.** A ship/release gate with a pre-flight checklist.
   Backlog; fun *and* functional.
 
-**Shipped since (no longer backlog), both proven by hermetic fuzz scenarios:**
-- **Time Crystal → regression anchors.** `grok-bitch run --anchor PATH` snapshots a golden
-  value before the run and fails (exit 16) if it drifts — *even when `--verify` passed*.
-  The silent regression a green check misses.
-- **CLI `--consensus N`.** `grok-bitch run --consensus N` runs the task N independent times
-  (reverting between), accepts only the agreement by content signature, and leaves the tree
-  clean with the winning patch saved — the [`/council`](Session-Modes.md#council) discipline
-  baked into the cage itself.
+**Shipped since (no longer backlog):**
+- **Time Crystal → regression anchors.** The handler snapshots a golden value before a caged
+  step and fails it if the value drifts — *even when the verify gate passed.* The silent
+  regression a green check misses; the [guard+revert](The-Safety-Cage.md) discipline extended
+  from files to golden values.
+- **Council of Ricks → consensus.** A claim or task run N independent, blind times, accepting
+  only the agreement by content signature and surfacing disagreement as signal — the
+  [`/council`](Session-Modes.md#council) discipline, each attempt caged.
 
 **Not built, on purpose (flavor-only):** a "Wubba Lubba Dub Dub" pep-talk mode, and
 characters whose only mapping is a costume (e.g. Noob-Noob's *redundant* cousins). The bar

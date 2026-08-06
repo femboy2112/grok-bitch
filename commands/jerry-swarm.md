@@ -91,13 +91,13 @@ thing this command ever says.
 - **The gate is the whole game.** Volume only wins on a *real* front; on anything that needs
   coordination or judgment, a swarm manufactures a Cronenberg. When in doubt, it's not a
   front.
-- **This is YOUR currency × N — not the free grok cage.** A Jerry-swarm is N Claude agents
-  doing their *own* work, so it spends the orchestrator's expensive budget multiplied by the
-  horde — *unlike* offloading to grok ([Toxic Morty's tokens are free](detox.md); a swarm's
-  are not). It pays only when the per-unit work is trivial enough that the cheap floor
-  suffices **and** the parallel wall-clock beats grinding serially. Default to `jerry`
-  (cheapest); escalate to `meeseeks` only when a unit truly needs it. Don't bill a swarm as
-  "free" — it isn't.
+- **This is YOUR currency × N — a real, multiplied bill.** A Jerry-swarm is N Claude agents
+  doing their *own* units, so it spends real budget multiplied by the horde — a different
+  economy from offloading one cheap disposable step to Morty (see the [token economy](detox.md)).
+  It pays only when the per-unit work is trivial enough that the cheap floor suffices **and**
+  the parallel wall-clock beats grinding serially. Default to `jerry` (cheapest); escalate to
+  `meeseeks` only when a unit truly needs it. It's cheap *per unit*, never *free* — size the
+  horde to a front that actually earns N.
 - **Cap honestly, truncate out loud.** Size the horde to the real unit count; don't spawn 200
   Jerries at 12 files. If you sample or cap a huge front with `xN`, **name what you left
   uncovered** — a swarm that quietly skips half the front reads as "done" when it isn't.

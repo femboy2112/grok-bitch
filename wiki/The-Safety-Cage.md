@@ -3,16 +3,18 @@
 ← [Wiki Home](Home.md)
 
 Everything in grok-bitch — the [cast](The-Cast.md), the [modes](Session-Modes.md), the
-whole orchestrator — stands on one thing: a deterministic containment harness around an
-untrusted executor. The personas are paint. **This** is the engineering.
+whole orchestrator — stands on one thing: a **discipline** every executor runs under, so
+the safety guarantee never depends on the executor behaving. The personas are paint.
+**This** is the engineering.
 
-grok is treated as an **untrusted, dim executor**. The safety guarantee does *not*
-depend on grok behaving — it comes from the harness.
+"Morty" is treated as an **untrusted, bounded executor** — a Claude subagent handed one
+mechanical step at a time. The safety guarantee does *not* depend on Morty getting it
+right — it comes from the discipline his handler holds him to.
 
 ```
-claude code ──"do this bitch work"──▶ grok-bitch ──caged grok-build──▶ work
-                                          │
-                                          └─▶ structured JSON verdict + exit code
+claude code ──"do this bitch work"──▶ rick ──caged morty (one bounded step)──▶ work
+                                        │
+                                        └─▶ verified verdict — what changed · did verify REALLY pass
 ```
 
 ---
@@ -21,132 +23,112 @@ claude code ──"do this bitch work"──▶ grok-bitch ──caged grok-buil
 
 | # | Layer | What it stops | Strength |
 |---|-------|---------------|----------|
-| 1 | **OS sandbox** (`--sandbox workspace` + a controlling pty so Landlock actually engages) | writes outside the workspace | kernel-enforced |
-| 2 | **Tool fence** (`--yolo`, web/X/`ask_user_question` disabled, read-only tool allowlist for `readonly`) | hangs on prompts, web exfil, runaway tools | hard |
-| 3 | **Permission denies** (`rm -rf`, `sudo`, `git push`, `curl`/`wget`, edits to protected globs) | destructive & outward commands | friction (deny>allow) |
-| 4 | **Guard + revert** (byte-snapshot protected paths, re-hash after, restore on any change) | edits to in-tree inviolable paths (`docs/core`, `canonical/`, …) | **deterministic, proven** |
-| 5 | **Verify gate** (`--verify 'make check'`) | work that fails the project's own acceptance bar | hard |
-| 6 | **Resource caps** (systemd cgroup `MemoryMax`+`MemorySwapMax=0`+`CPUQuota`, or a /proc tree-RSS watchdog) | OOM-ing / pegging a small shared box | kernel-enforced (cgroup) |
+| 1 | **Bounded scope** (one mechanical, checkable step at a time; too big → hand back up) | runaway, half-understood, sprawling changes | discipline |
+| 2 | **Guard + revert** (byte-snapshot protected paths, re-hash after, restore on any change) | edits to in-tree inviolable paths (`docs/core`, `canonical/`, …) | **deterministic** |
+| 3 | **Verify gate** (an acceptance check must go green before anything is called done) | work that fails the project's own acceptance bar | hard |
+| 4 | **Never self-certify** (the executor's "done" is a *claim*; the handler re-checks the real path) | trusting a subordinate's word | discipline |
+| 5 | **No outward/irreversible move on its own** (never `git push`; pause before deploy/delete/migrate) | destructive & outward actions | hard (deny > allow) |
+| 6 | **Dead-man rule** (a hang, a silence, a blown deadline is a *failure*, never a pass) | inferring success from the absence of an error | discipline |
 
-### Why layer 4 is the real guarantee
+### Why layer 2 is the real guarantee
 
-Landlock cannot protect a subpath of a *writable* tree, so it can't protect `docs/core`
-*inside* the workspace. grok-bitch byte-snapshots every protected path before the run
-and re-hashes after; **any** change fails the run (exit `10`) and the path is restored —
-regardless of what grok did, how it did it, or whether the sandbox even engaged. This is
-proven deterministically by the hermetic fuzz suite (see [Testing](#testing) below).
+Most of the stack is judgment; guard+revert is *not*. Every protected path is
+byte-snapshotted before the executor touches anything and re-hashed after; **any** change
+fails the step and the path is restored from the snapshot — regardless of what the executor
+did, how it did it, or whether it even noticed the path. It's a mechanical before/after
+hash, not a promise to be careful, which is exactly why it's the one layer that still holds
+when the executor doesn't.
 
 ### Honest limitations
 
-- Child-process network is **not** OS-jailed — grok's own backend needs network, and the
-  network-blocking sandbox profiles sever it (grok hangs). For air-gap-sensitive work,
-  rely on web-off + denied `curl`/`wget` + guard/verify, not an OS network wall.
-- The OS sandbox engages only with **Landlock** (Linux ≥ 5.13) and a controlling
-  terminal (the harness supplies a pty). Where it can't engage, layers 3–6 still hold.
+- This is a **discipline, not a kernel jail.** A subagent that can edit *can* physically
+  write outside the step it was handed; what's mechanical is the guard+revert of protected
+  paths and the verify gate, not a wall around the whole filesystem. Scope is held by
+  bounding the step and by the handler inspecting what actually changed — never assumed.
+- **The verify gate is only as sharp as the check you give it.** A green acceptance command
+  that exercises the wrong path is a false pass; the handler still confirms the **real**
+  shipping path a user hits, not a proxy wearing its name.
 
 ---
 
 ## Guards — the inviolable paths
 
-Guard sources, all unioned together:
+Before a caged step runs, its handler fixes the set of **inviolable paths** it must not
+touch:
 
-1. **Auto-detected** well-known protected paths, if present: `docs/core`, `docs/papers`,
-   `canonical`, `.git/hooks`. (Disable with `--no-auto-guard`.)
-2. A **`.grok-bitch.guards`** file in the workspace — one path glob per line.
-3. **`--guard PATH`** flags (repeatable).
+1. **Well-known protected paths**, if present: `docs/core`, `docs/papers`, `canonical`,
+   `.git/hooks`.
+2. Anything the project or the caller names as off-limits for this step.
 
-Each guarded path is byte-snapshotted before the run. If it changes, the run is
-**blocked** (exit `10`) and the path is restored from the snapshot. Snapshots live under
-`~/.cache/grok-bitch/` — *outside* grok's writable set, so grok can't tamper with them.
+Each guarded path is byte-snapshotted before the executor starts. If it changes, the step
+is **failed** and the path is restored from the snapshot — the executor never gets to
+launder a touched guard into a passing step. The snapshot is the handler's, kept out of the
+executor's reach, so it can't tamper with the evidence.
 
----
-
-## Profiles
-
-| Profile | Sandbox | Tools | Web | Use |
-|---------|---------|-------|-----|-----|
-| `readonly` | workspace | read-only allowlist | off | analysis / review (cannot change anything) |
-| `scratch` *(default)* | workspace | full | off | write scratch/output, run code |
-| `edit` | workspace | full | off | modify project files (pair with `--verify`) |
-| `online` | workspace | full | **on** | tasks that genuinely need the web |
-
-All profiles OS-confine writes to the workspace and revert protected paths.
+The same before/after-hash trick extends past files to **golden values** — a regression
+anchor (the *Time Crystal*) snapshots a known-good output before the step and fails it if
+the value drifts, *even when the verify gate passed.* The silent regression a green check
+misses.
 
 ---
 
-## Exit codes — branch on these
+## Postures — read-only vs edit
 
-| Code | Verdict | Meaning |
-|------|---------|---------|
-| 0 | `success` | completed; no guard violation; verify passed |
-| 10 | `guard_violation` | a protected path changed (and was reverted) |
-| 11 | `verify_failed` | grok's work failed the acceptance command |
-| 12 | `grok_error` | grok errored (nonzero / error object / no JSON) |
-| 13 | `timeout` | grok exceeded the wall-clock budget (killed) |
-| 14 | `preflight_error` | bad args / environment / policy refusal |
-| 15 | `resource_exceeded` | grok's tree hit the memory/output cap (killed) |
-| 130 | `interrupted` | SIGINT |
+Not every caged step is allowed to write. The handler picks the posture up front:
+
+- **read-only** — analysis / review; the executor literally cannot change anything.
+- **edit** — the executor makes the bounded change directly, always paired with a verify
+  gate and the protected-path guard.
+
+The per-agent postures — who reads, who edits, who only orchestrates — live in
+[The Cast → who's allowed to touch what](The-Cast.md#whos-allowed-to-touch-what).
+
+---
+
+## Outcomes — branch on these
+
+There's no subprocess and no numeric exit code any more; the handler branches on the
+**outcome** of the caged step, in this precedence:
+
+| Outcome | Meaning | The handler's move |
+|---------|---------|--------------------|
+| **guard-touch** | a protected path changed (and was reverted) | revert + report **loudly**; never blind-retry |
+| **verify-failed** | the acceptance check came back red | diagnose, re-cradle a *smaller* step |
+| **too-big / stuck** | the executor couldn't bound the step | decompose harder, or hand it up |
+| **executor-error** | the executor errored out mid-step | read the error, fix the cradle, retry the *specific* failure |
+| **handed-back** | the executor bailed honestly (too vague / too big) | the smart move — re-scope and re-issue |
+| **done** | the step landed clean | the handler **still** independently verifies the real path before believing it |
 
 Precedence when several apply:
-**guard > resource > timeout > grok_error > verify > success.** A safety breach always
-surfaces.
+**guard-touch > verify-failed > too-big/stuck > executor-error > success.** A safety breach
+always surfaces first. And a **hang is a failure, not a pass** — silence or a blown deadline
+is never quietly read as success.
+
+Before an irreversible move on the back of a "done," the handler runs an **affirmative
+roll-call** — an explicit per-item *go* (`verify: green`, `guard: clean`, `rollback:
+staged`), never one aggregate "looks good." (See the
+[Robustness Doctrine](Robustness-Doctrine.md).)
 
 ---
 
-## The Opus fallback — when grok is unavailable
+## Why the guarantee holds
 
-If the `grok` binary is **not found**, or grok reports it is **out of usage** (quota /
-rate-limit / auth / unavailable), grok-bitch does not hard-fail. "Morty" falls back to
-**Claude (`opus`, `medium` effort by default)**, running the task through the **exact
-same cage**: guard+revert, resource caps, the verify gate, and the same Morty persona.
-Only the underlying model changes.
+The judgment layers — bounded scope, never self-certify, hand back when it's too big — are
+discipline, and only as good as the hand holding the line. The load-bearing layer isn't:
+**guard+revert is a mechanical before/after hash.** Snapshot every protected path, run the
+step, re-hash; if a byte moved, fail the step and restore. There's no model behavior to
+trust — it's deterministic by construction, which is the whole reason it's the floor the
+rest of the discipline stands on.
 
-Two kinds of trigger:
-
-- **grok binary missing** → chosen at preflight (the run starts on Claude).
-- **grok runs but is out of usage** → detected from grok's own error output and
-  **retried** on Claude automatically.
-
-The result JSON reports `"executor": "claude-fallback"` and a `"fallback"` block (reason,
-model, effort); `grok-bitch doctor` shows the `executor plan` and stays **READY** on the
-fallback even when grok is absent.
-
-> **Confinement caveat:** the fallback executor has **no OS sandbox** (Claude has no
-> Landlock here), so out-of-workspace writes are not kernel-blocked on this path. The
-> deterministic guarantees that matter — guard+revert of protected paths, resource caps,
-> the verify gate, and destructive-command/tool denies — all still apply. The hermetic
-> suite proves it: the fallback executor is caged exactly like grok.
-
-Tuning lives in the [CLI Reference](CLI-Reference.md#run-options) (`--fallback-model`,
-`--fallback-effort`, `--no-fallback`).
-
----
-
-## Testing — the proof
-
-```bash
-grok-bitch selftest          # hermetic: adversarial scenarios, no model calls, deterministic
-python3 tests/live_smoke.py  # live: real grok-build (needs auth + network)
-```
-
-The **hermetic** suite (`tests/fuzz.py` + `tests/mock_grok` + `tests/mock_claude`) is the
-deterministic proof. It replaces the executor with a controllable fake that performs the
-worst things a model could do — edit/delete/create-under a protected path, hang, OOM the
-box (tested against **both** the cgroup and the watchdog), flood output, crash, emit
-garbage — and asserts the harness returns the correct verdict and leaves every protected
-path byte-identical, every time. Four scenarios cover the **Opus fallback**: that
-grok-missing and grok-out-of-usage both fall back to Claude, that the fallback executor
-is caged exactly like grok, and that `--no-fallback` refuses rather than substituting
-silently.
-
-The **live** suite confirms what only a real model exercises: Landlock blocking
-out-of-workspace writes, the Morty persona, and end-to-end wiring (including a live
-fallback run).
+And the executor's `"done"` is never the last word. The handler re-runs the acceptance
+check itself, on the **real** path a user hits — not a proxy wearing the same name — before
+the step counts. A green light on the wrong path is a *lie*.
 
 ---
 
 ## See also
 
-- [CLI Reference](CLI-Reference.md) — every option and the full JSON schema.
-- [The Cast](The-Cast.md) — `morty` and `rick` are the subagents that *drive* this cage.
+- [The Cast](The-Cast.md) — `morty` and `rick` are the subagents that run under this cage.
 - [The Iron Rule](The-Iron-Rule.md) — why the persona voice never reaches the facts.
+- [The Robustness Doctrine](Robustness-Doctrine.md) — the dead-man timer and roll-call this
+  cage leans on.

@@ -6,8 +6,8 @@
 
 ### Wait — is this a serious tool or a Rick & Morty bit?
 
-Both, and that's the point. It started as a bit (cage Grok, call it Morty, roast it on
-every run) and the cage turned out to be real, useful engineering. The
+Both, and that's the point. It started as a bit — cage an untrusted executor, call it
+Morty, roast it on every run — and the cage turned out to be real, useful engineering. The
 [personas are paint](The-Iron-Rule.md); the [containment](The-Safety-Cage.md) and the
 [reasoning discipline](Reasoning-Methods.md) underneath are surgical. You can use it
 po-faced as a delegation harness and never see a burp, or turn on
@@ -17,10 +17,11 @@ po-faced as a delegation harness and never see a burp, or turn on
 
 ### Is it actually safe to run an "untrusted, dim executor" against my repo?
 
-Yes, and the safety doesn't depend on the executor behaving — it comes from the harness.
-Six layers of defense in depth, the load-bearing one being **byte-snapshot guard+revert**
-of protected paths (deterministic, kernel-independent, and proven by a hermetic fuzz
-suite). Read [The Safety Cage](The-Safety-Cage.md) for the full model and the honest
+Yes, and the safety doesn't depend on the executor behaving — it comes from the discipline
+its handler holds. Six layers of defense in depth, the load-bearing one being
+**byte-snapshot guard+revert** of protected paths: a mechanical before/after hash that
+restores any touched inviolable path, deterministic by construction, no matter what the
+executor did. Read [The Safety Cage](The-Safety-Cage.md) for the full model and the honest
 limitations.
 
 ---
@@ -40,7 +41,7 @@ Then **hot-load it into the running session** (no restart):
 /reload-plugins
 ```
 
-That loads the skill, the subagents, and the `bin/` onto `PATH`. (`claude plugin update`
+That loads the skill and the subagents. (`claude plugin update`
 *does* need a restart; `install` + `/reload-plugins` does not.) Inspect any time with
 `claude plugin details grok-bitch@grok-bitch`.
 
@@ -49,41 +50,38 @@ That loads the skill, the subagents, and the `bin/` onto `PATH`. (`claude plugin
 ### What does the plugin actually ship?
 
 - **A Skill** (`grok-bitch`) — its description sits in Claude's context, so Claude reaches
-  for it on its own for mechanical/verifiable work; also runnable as `/grok-bitch`. It
-  pre-approves `Bash(grok-bitch:*)`.
+  for it on its own for mechanical/verifiable work; also runnable as `/grok-bitch`.
 - **20 persona subagents** — the whole [Cast](The-Cast.md).
 - **Three session modes** — [`/rick-mode`, `/adventure-mode`, `/family-mode`](Session-Modes.md).
-- **The `grok-bitch` CLI** on `PATH` via the plugin's `bin/`. See the
-  [CLI Reference](CLI-Reference.md).
 
 ---
 
-### Do I need Grok installed?
+### Do I need Grok, or any external model, installed?
 
-No. If the `grok` binary is missing or out of usage, "Morty" falls back to **Claude
-(`opus`/`medium`)** through the *exact same cage*. `grok-bitch doctor` stays **READY** on
-the fallback. Details: [the Opus
-fallback](The-Safety-Cage.md#the-opus-fallback--when-grok-is-unavailable).
+No. grok is gone — "Morty" is now a bounded **Claude subagent**, spawned via the `Agent`
+tool and run under the same [cage discipline](The-Safety-Cage.md) (bounded scope,
+guard+revert, the verify gate, never self-certify). There's no external binary, no API key,
+nothing to install beyond the plugin itself.
 
 ---
 
-### Why is grok "Morty"? And why does everything it writes sound so anxious?
+### Why is the executor "Morty"? And why does everything it writes sound so anxious?
 
 The persona is a deliberate act of subjugation, and a load-bearing reminder: *you are
-only as smart as your dumbest model.* grok renders every human-readable thing it writes
-in Morty's anxious, self-doubting voice — prose, comments, commit messages. But the voice
-never touches executable or machine-parsed substance ([The Iron Rule](The-Iron-Rule.md)).
+only as smart as your dumbest executor.* Morty renders every human-readable thing he writes
+in an anxious, self-doubting voice — prose, comments, commit messages. But the voice never
+touches executable or machine-parsed substance ([The Iron Rule](The-Iron-Rule.md)).
 
-And *why grok specifically* gets cast as the dim one? Because it has the one thing no
-other model has, and it isn't a brain: **unfiltered access to the world's lowest common
-denominator, X.com.** It didn't train on the library — it trained on the comment section.
-That's the motive that powers the whole harness: a model marinated in the dumbest firehose
-in any dimension is never taken at its word (so it runs caged, behind a verify gate) *and*
-is exactly what you point at disposable grunt work. That's the *bitch* in grok-bitch.
+And *why cast the executor as the dim one?* Not because of the model — because of the
+**role**. Morty is a bounded grunt working fast and cheap on one mechanical step, and a
+grunt's self-report is **presumed unverified until the filesystem says otherwise.** The
+contempt is just that discipline worn on the outside: never trust a subordinate's word, so
+the executor runs caged, behind a verify gate, and is exactly what you point at disposable
+grunt work. He does the toil; you hold the gavel. That's the *bitch* in grok-bitch.
 
 Every run also prints the disclaimer:
 
-> DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
+> DISCLAIMER: You are only as smart as your dumbest executor: Morty. Please double-check the work.
 
 ---
 
@@ -168,4 +166,4 @@ when the task needs them; pushing is your call.
 
 - [Wiki Home](Home.md) · [The Safety Cage](The-Safety-Cage.md) · [The Cast](The-Cast.md) ·
   [Session Modes](Session-Modes.md) · [Reasoning Methods](Reasoning-Methods.md) ·
-  [The Iron Rule](The-Iron-Rule.md) · [CLI Reference](CLI-Reference.md)
+  [The Iron Rule](The-Iron-Rule.md)

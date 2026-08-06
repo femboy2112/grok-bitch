@@ -10,7 +10,7 @@ Council exists because the only thing that beats one genius is the same genius f
 agree with himself from angles that don't share a blind spot. `/council <claim or task>`
 fans out **N independent bearings**, keeps them blind to each other, and trusts only where
 their lines cross. It's the Lab Notebook's two-blind-paths and the Citadel's triangulation,
-pulled into one gate.
+pulled into one gate — the plugin's form of the Aletheia Trilateration Protocol.
 
 ## Parse `$ARGUMENTS`
 
@@ -28,7 +28,7 @@ independent attempts, each run caged.
    mode is one witness in N coats). Spawn them as **`council-rick`** (each returns one
    labeled bearing); for a wide search use a mix of **`citadel-rick`** bearings, and when
    the fan-out should be deterministic and kept out of your context, run it as a `Workflow`.
-   For a *task*, each attempt runs through the grok-bitch cage with a `--verify` gate.
+   For a *task*, each attempt runs under the grok-bitch cage discipline with a verify gate.
 3. **Tabulate, then triage the splits.** Where bearings cross → real. Where they diverge →
    run the dumb-cause triage (formatting, stale cache, env drift, float precision) *before*
    you call it a contradiction. Don't average a disagreement away — it's the most

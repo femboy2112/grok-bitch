@@ -1,0 +1,9 @@
+{
+  "_comment": "Classical mode: three candidate explanations of an observed invariant, each as a predictive distribution over a probe's finite outcomes. `structure` and `proxy` are truth-indistinguishable under THIS probe (trace distance ~ 0) though they have different source maps -- a probe-gap. The instrument quantifies the indistinguishability (total variation = classical trace distance), reports the best single-shot Helstrom discrimination, the Chernoff exponent (how many blind bearings separate a pair), and the most-discriminating outcome to look at next.",
+  "mode": "classical",
+  "hypotheses": {
+    "structure": [0.45, 0.45, 0.10],
+    "proxy": [0.44, 0.46, 0.10],
+    "noise": [0.34, 0.33, 0.33]
+  }
+}

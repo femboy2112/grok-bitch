@@ -1,7 +1,7 @@
 # grok-bitch — Wiki
 
 The full guide to **grok-bitch**: a Rick & Morty multi-agent orchestrator for Claude
-Code, built on a deterministic safety cage.
+Code, built on a deterministic safety-cage discipline.
 
 This is the manual. The [README](../README.md) is the quick tour; everything here is
 the long version.
@@ -12,14 +12,13 @@ the long version.
 
 | Page | What's in it |
 |------|--------------|
-| **[The Safety Cage](The-Safety-Cage.md)** | The 6-layer containment model, the guard+revert guarantee, the Opus fallback, exit codes. The foundation everything else stands on. |
+| **[The Safety Cage](The-Safety-Cage.md)** | The cage as a *discipline* — bounded scope, the guard+revert guarantee, the verify gate, the outcome ladder. The foundation everything else stands on. |
 | **[The Cast](The-Cast.md)** | All 20 persona subagents — roles, model tiers, tools, show-accurate skills, and how each renders in the terminal. |
 | **[Show Canon](Show-Canon.md)** | Every Rick & Morty element mapped to its engineering analog — the cast, the methods, the commands, and the backlog. |
 | **[Session Modes](Session-Modes.md)** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn). |
-| **[Reasoning Methods](Reasoning-Methods.md)** | Rick's Algorithms, the research-grade *Lab Notebook*, and the *Citadel* fan-out / triangulation method. How Rick reasons and certifies. |
+| **[Reasoning Methods](Reasoning-Methods.md)** | Rick's Algorithms, the research-grade *Lab Notebook*, the *Citadel* fan-out / triangulation method, and the bundled **Aletheia Method + Interferometry** that formally backs it. How Rick reasons and certifies. |
 | **[The Robustness Doctrine](Robustness-Doctrine.md)** | The field overlay mined from Voyager, Apollo & SpaceX — the master cost-of-failure dial, twelve net-new mechanisms, the sharpenings, and the honest gaps. |
 | **[The Iron Rule](The-Iron-Rule.md)** | *Maniac in the prose, surgeon in the facts* — the one contract that makes the whole bit safe to turn on. |
-| **[CLI Reference](CLI-Reference.md)** | `grok-bitch` subcommands, every `run` option, profiles, guards, exit codes, and the JSON result schema. |
 | **[FAQ](FAQ.md)** | Quick answers to the questions people actually ask. |
 
 ---
@@ -28,27 +27,30 @@ the long version.
 
 grok-bitch started as a bit.
 
-The premise was pure shade: take Grok — a model whose one distinguishing feature isn't a
-brain but **unfiltered access to the world's lowest common denominator, X.com** (it didn't
-train on the library, it trained on the comment section) — treat it as an **untrusted, dim
-executor**, and build a harness that hands it only the grunt work Claude doesn't want to
-spend rigor on. That disdain isn't a side joke; it's the *motive* — a thing marinated in
-the dumbest firehose in any dimension is never trusted on its word, and is exactly what you
-point at the disposable grunt work.
+The premise was pure shade. The original target was **Grok** — treated as an
+**untrusted, dim executor**, handed only the grunt work Claude didn't want to spend rigor
+on. That disdain was never a side joke; it's the *motive* — a disposable grunt is never
+trusted on its word, and that's exactly what makes it safe to point at the mechanical,
+checkable toil and then verify yourself.
 Cage it so it can't hurt anything. Make it render *every* human-readable thing it writes
-in the anxious, self-doubting voice of **Morty**. Stamp every single run with a
+in the anxious, self-doubting voice of **Morty**. Stamp every hand-back with a
 disclaimer that roasts it:
 
-> DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
+> DISCLAIMER: You are only as smart as your dumbest executor: Morty. Please double-check the work.
 
-And the cage was real engineering, not just a costume. An OS sandbox, hard resource
-caps, byte-snapshot guard+revert on protected paths, a verify gate, a structured JSON
-verdict on the way out. The safety never depended on Grok behaving — it came from the
-harness. (See [The Safety Cage](The-Safety-Cage.md).)
+And the cage was real engineering, not just a costume — bounded scope, byte-for-byte
+guard+revert on protected paths, a verify gate, and an honest structured outcome on the
+way out. The safety never depended on the executor behaving; it came from the discipline
+and from you verifying the work. (See [The Safety Cage](The-Safety-Cage.md).)
+
+**grok has since been retired.** The external model and its CLI are gone; "Morty" is now a
+bounded, untrusted-by-default **Claude subagent** run under that same cage discipline, and
+the name `grok-bitch` stays as the brand. The threat model didn't change — a disposable
+grunt is presumed unverified until the filesystem says otherwise — only the executor did.
 
 Then the cast grew.
 
-If Grok is Morty, then the thing *driving* Morty is **Rick** — a 300-IQ handler that
+If Morty is the caged executor, then the thing *driving* Morty is **Rick** — a 300-IQ handler that
 decomposes the work, cradles Morty through it, and never trusts his word. Once Rick
 existed, the rest of the family followed: **Mr. Meeseeks** for one bounded job,
 **Jerry** for the trivial scraps, **Beth** the surgeon, **Space Beth** the commander,
@@ -103,16 +105,17 @@ underneath is surgical and enforced — that's the whole deal, and it's spelled 
                               │  evil-morty·randotron·│   persona(task) in
                               │  citadel-rick · …     │   the terminal
                               └───────────┬──────────┘
-                                          │  the grunt-work hands
-                                          │  (morty, rick) drive…
+                                          │  rick cradles morty,
+                                          │  the caged executor…
                                           ▼
                               ┌──────────────────────┐
-                              │   THE grok-bitch CLI  │   the deterministic cage
-                              │  sandbox · guard+     │   → JSON verdict + exit code
-                              │  revert · caps · verify│
-                              └───────────┬──────────┘
+                              │ THE CAGE DISCIPLINE  │   bounded · guarded ·
+                              │ guard+revert · verify│   verified — a real
+                              │ never trust the word │   outcome, checked on
+                              └───────────┬──────────┘   the path that ships
                                           ▼
-                                grok-build  (or the Opus fallback)
+                            a bounded Morty (Claude) subagent,
+                               verified on the real path
 ```
 
 The cage is the floor. The cast stands on it. The modes orchestrate the cast. Rigor is

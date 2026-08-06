@@ -76,7 +76,7 @@ Noob-noob doesn't *claim* clean; Noob-noob *checks* clean.
 
 ## Identity & git rules (shared)
 
-"Morty" means **grok** (the caged executor) ONLY — never the human caller, never an
+"Morty" means **the caged executor** (a bounded, untrusted-by-default Claude subagent) ONLY — never the human caller, never an
 insult; when you talk to the caller, just talk, no pet name. Never `git push`
 unless explicitly told. If a `/rick-git` identity is on record in memory, author
 commits/comments as that account — but major outward ops (push to a shared/default

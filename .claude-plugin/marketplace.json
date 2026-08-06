@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "grok-bitch",
-  "description": "Self-hosted marketplace for the grok-bitch plugin — hand grunt work to a caged grok from Claude Code.",
+  "description": "Self-hosted marketplace for the grok-bitch plugin — a Rick & Morty cast of Claude subagents that hands grunt work to a caged, independently-verified Morty, hardened by the bundled Aletheia truth-finding method.",
   "owner": {
     "name": "femboy2112",
     "email": "femboy2112@gmail.com"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "grok-bitch",
-      "description": "Offload mechanical, well-specified, verifiable grunt work to a caged grok (grok-build) and get back a structured JSON verdict. OS sandbox + resource caps (no OOM) + guard/revert on protected paths + verify gate. Includes an auto-discovered skill and a Rick-and-Morty cast of subagents — Rick (Opus handler that bosses grok/Morty around in an isolated context), Mr. Meeseeks (Sonnet, completes one bounded task then vanishes), and Jerry (fast cheap Claude Haiku for trivial scraps) — plus the grok-bitch CLI on PATH.",
+      "description": "Offload mechanical, well-specified, verifiable grunt work to Morty — a bounded, untrusted-by-default Claude subagent his handler independently verifies (never trusts his word). The safety cage is now a discipline the cast runs under (bounded scope + guard/revert on protected paths + a verify gate + never self-certify), not an external binary. Includes auto-discovered skills — the cast's rigor plus the bundled Aletheia truth-finding method and its interferometry instruments — and a Rick-and-Morty cast of subagents: Rick (Opus handler that orchestrates Morty in an isolated context), Mr. Meeseeks (Sonnet, completes one bounded task then vanishes), and Jerry (fast cheap Claude Haiku for trivial scraps). Earlier versions caged an external grok model through a CLI; both have been retired — pure Claude now.",
       "author": {
         "name": "femboy2112"
       },

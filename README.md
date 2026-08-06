@@ -1,12 +1,14 @@
 # grok-bitch
 
 > **A Rick & Morty multi-agent orchestrator for Claude Code — built on a deterministic
-> safety cage.**
+> safety discipline.**
 
-It started as a bit: a harness to cage **Grok**, treat it as Claude's dim and disposable
-*Morty*, make it write everything in an anxious self-doubting voice, and stamp every run
-with a disclaimer roasting it. The cage was real engineering, though — an OS sandbox,
-guard+revert, resource caps, a verify gate — and once it existed, the cast grew. Rick,
+It started as a bit: a harness to cage **Grok** — treat xAI's model as Claude's dim and
+disposable *Morty*, make it write everything in an anxious self-doubting voice, and stamp
+every run with a disclaimer roasting it. Grok has since left the building; the *discipline*
+that caged it turned out to be the valuable part — bounded scope, guard+revert, a verify
+gate, never self-certify — so **Morty** stayed on, reframed as a bounded, untrusted-by-default
+**Claude subagent** his handler independently verifies. And the cast grew around him: Rick,
 Meeseeks, Jerry, Beth, Birdperson, Evil Morty, a whole Citadel. The joke quietly turned
 into a genuine orchestration layer: **a roster of persona-driven Claude subagents,
 session-wide "become Rick" modes, and deterministic multi-agent Workflows.** The voice
@@ -18,68 +20,58 @@ is paint. The rigor underneath is surgical and enforced.
 
 | | Layer | What it is | Deep dive |
 |---|-------|-----------|-----------|
-| 🧪 | **The cage** | `grok-bitch`, a stdlib-only Python CLI that runs grok (or an Opus fallback) under an OS sandbox, guard+revert, resource caps, and a verify gate — returning a structured JSON verdict | [The Safety Cage](wiki/The-Safety-Cage.md) |
+| 🧪 | **The cage** | Not a program anymore — a **discipline** the whole cast runs under: bounded scope · guard+revert on protected paths · a verify gate before anything's called done · never self-certify · hand back if it's too big · never push on its own | [The Safety Cage](wiki/The-Safety-Cage.md) |
 | 🎭 | **The cast** | 20 persona subagents — Rick, Morty, Mr. Meeseeks, Jerry, Citadel Rick, Beth, Space Beth, Summer, Birdperson, Mr. Poopybutthole, Evil Morty, Randotron, Council Rick, Mr. President, Snowball, Dr. Xenon Bloom, Jessica, Diane, Butter Robot, Noob-Noob — each a real role with show-accurate skills and a style-accurate model tier | [The Cast](wiki/The-Cast.md) |
 | 🛸 | **The modes** | `/rick-mode` (become Rick), `/adventure-mode` (a goal → an episode run as a Workflow), `/family-mode` (a standing ensemble every turn) | [Session Modes](wiki/Session-Modes.md) |
 | 🔬 | **The method** | Rick's Algorithms + the research-grade *Lab Notebook* + Citadel triangulation, hardened by the field-tested **Robustness Doctrine** (mined from Voyager / Apollo / SpaceX) — how Rick reasons, certifies, and survives contact with reality | [Reasoning Methods](wiki/Reasoning-Methods.md) · [Robustness Doctrine](wiki/Robustness-Doctrine.md) |
+| 📐 | **The instruments** | The bundled **Aletheia Method** + **Interferometry** kit (`skills/the-aletheia-method/`, `skills/aletheia-interferometry/`) — five deterministic, dependency-free Python truth-finding instruments that give the cast's triangulation a formal backbone: Council Rick runs the Trilateration Protocol, the Citadel supplies independent blind bearings, Evil Morty / Randotron the discriminating probe | [Reasoning Methods](wiki/Reasoning-Methods.md) |
 
 The thing that makes it safe to be this silly: **maniac in the prose, surgeon in the
 facts** — every persona voice rides on the *talking*; the *doing* stays exact. See
 [The Iron Rule](wiki/The-Iron-Rule.md).
 
 ```
-claude code ──"do this bitch work"──▶ grok-bitch ──caged grok-build──▶ work
-                                          │
-                                          └─▶ structured JSON verdict + exit code
+you ──"do this bitch work"──▶ Rick ──Agent tool──▶ Morty (bounded Claude subagent)
+                               │                         │
+                               │                    does one checkable step
+                               ▼                         │
+                        independently ◀──── outcome ──────┘
+                          verifies       (done / guard-touch / verify-failed / …)
+                               │
+                               ▼
+                        clean verified verdict
 ```
 
-grok is treated as an **untrusted, dim executor**. The safety guarantee does *not*
-depend on grok behaving — it comes from the harness.
+Morty is treated as an **untrusted executor**. The safety guarantee does *not* depend on
+Morty behaving — it comes from the handler's discipline: nothing is called done until the
+handler has independently verified it.
 
 ---
 
 ## The safety model (defense in depth)
 
-| # | Layer | What it stops | Strength |
-|---|-------|---------------|----------|
-| 1 | **OS sandbox** (`--sandbox workspace` + a controlling pty so Landlock actually engages) | writes outside the workspace | kernel-enforced |
-| 2 | **Tool fence** (`--yolo`, web/X/`ask_user_question` disabled, read-only tool allowlist for `readonly`) | hangs on prompts, web exfil, runaway tools | hard |
-| 3 | **Permission denies** (`rm -rf`, `sudo`, `git push`, `curl`/`wget`, edits to protected globs) | destructive & outward commands | friction (deny>allow) |
-| 4 | **Guard + revert** (byte-snapshot protected paths, re-hash after, restore on any change) | edits to in-tree inviolable paths (`docs/core`, `canonical/`, …) | **deterministic, proven** |
-| 5 | **Verify gate** (`--verify 'make check'`) | work that fails the project's own acceptance bar | hard |
-| 6 | **Resource caps** (systemd cgroup `MemoryMax`+`MemorySwapMax=0`+`CPUQuota`, or a /proc tree-RSS watchdog) | OOM-ing / pegging a small shared box | kernel-enforced (cgroup) |
+The old machinery jailed an untrusted *external process*; with the executor now a Claude
+subagent, the containment lives where it always did its real work — in the **discipline**
+the cast applies to every delegated step.
 
-**Why layer 4 is the real guarantee.** Landlock cannot protect a subpath of a
-writable tree, so it can't protect `docs/core` *inside* the workspace. grok-bitch
-byte-snapshots every protected path before the run and re-hashes after; **any**
-change fails the run (exit 10) and the path is restored — regardless of what grok
-did, how it did it, or whether the sandbox engaged. This is proven deterministically
-by the hermetic fuzz suite.
+| # | Rule | What it stops | How it holds |
+|---|------|---------------|--------------|
+| 1 | **Bounded scope** — one mechanical, checkable step at a time, in a named workspace | scope creep, runaway edits, "while I was in there…" | the step is too small to hide a surprise in |
+| 2 | **Guard + revert** — byte-snapshot the protected paths, re-hash after, restore on any change | edits to in-tree inviolable paths (`docs/core`, `canonical/`, …) | **deterministic** — any drift is caught and undone |
+| 3 | **Verify gate** — an acceptance check (`make check`, the suite) runs before anything is called done | work that fails the project's own acceptance bar | hard: a red gate is not "done" |
+| 4 | **Never self-certify** — the executor reports what happened; the handler verifies it independently | a subordinate's rosy self-report | structural: the doer never grades its own work |
+| 5 | **Hand back if too big** — a step that can't be bounded is returned, not forced through | a grunt guessing at intent it can't hold | honest failure beats a confident wrong |
+| 6 | **Never push on its own** — irreversible/outward moves (push, deploy, delete) stage and wait for your go | a robot shipping without consent | you hold the gavel |
 
-> Honest limitations: child-process network is **not** OS-jailed — grok's own
-> backend needs network, and the network-blocking sandbox profiles sever it (grok
-> hangs). For air-gap-sensitive work, rely on web-off + denied `curl`/`wget` +
-> guard/verify, not an OS network wall. The OS sandbox engages only with Landlock
-> (Linux ≥ 5.13) and a controlling terminal (the harness supplies a pty). Where it
-> can't engage, layers 3–6 still hold.
+**Why guard + revert is the real guarantee.** Everything else in the list is judgment;
+this one is mechanical. The cast byte-snapshots every protected path before a step and
+re-hashes after — **any** change is caught (a *guard-touch*) and the path restored,
+regardless of what the executor did, how it did it, or whether it meant to. The rest of the
+discipline keeps work honest; this is the part that can't be argued with.
 
 ---
 
-## Install
-
-It's a single stdlib-only Python 3 script. Put it on `PATH`:
-
-```bash
-ln -s "$PWD/grok-bitch" ~/.local/bin/grok-bitch   # or copy it
-grok-bitch doctor                                  # check the environment
-```
-
-`doctor` verifies grok is installed & authed, Landlock is available, a resource
-enforcer exists, git is present, and the run dir is writable.
-
----
-
-## Use it as a Claude Code plugin (recommended)
+## Install & use it as a Claude Code plugin
 
 This repo *is* a Claude Code plugin **and** its own marketplace, so Claude reaches
 for grok-bitch automatically when grunt work shows up — no need to remember it.
@@ -95,8 +87,8 @@ claude plugin install grok-bitch@grok-bitch
 /reload-plugins
 ```
 
-That one in-session command loads the skill, the subagents, and the `bin/` onto
-`PATH` (small token cost on the next turn). Alternatively just start a new
+That one in-session command loads the skill and the subagents (small token cost on
+the next turn). Alternatively just start a new
 `claude` session — plugins auto-load at startup. (Note: `claude plugin update`
 *does* need a restart to apply; `install` + `/reload-plugins` does not.)
 
@@ -104,17 +96,17 @@ What the plugin ships:
 
 - **A Skill** (`grok-bitch`) — its description sits in Claude's context, so Claude
   invokes it on its own for mechanical/verifiable work; also runnable as
-  `/grok-bitch`. It pre-approves `Bash(grok-bitch:*)` so the CLI runs without a
-  permission prompt.
-- **A subagent, `rick`** — **Rick** is the 300-IQ handler who drives grok
-  (**Morty**) in an *isolated context*: he decomposes the goal into bounded steps,
-  cradles Morty through them, adapts to every error by exit code, **never trusts
-  Morty's word** (he independently verifies), and returns only a clean verified
-  verdict — keeping Morty's noisy transcript out of the main conversation. Rick
-  also has a **`PushNotification` intercom**: he fires short, Rick-voiced
-  milestone pings (kickoff, each step Morty lands, any nonzero exit, done) that
-  quote what Morty is actually doing — so you can walk away and still follow
-  along on your terminal/phone. Tell him to keep quiet and he mutes it.
+  `/grok-bitch`. It routes that work to the cast — Rick and the Morty subagent —
+  under the cage discipline.
+- **A subagent, `rick`** — **Rick** is the 300-IQ handler who drives **Morty** (a
+  bounded Claude subagent, spawned via the **Agent tool**) in an *isolated context*:
+  he decomposes the goal into bounded steps, cradles Morty through them, adapts to
+  every outcome, **never trusts Morty's word** (he independently verifies), and
+  returns only a clean verified verdict — keeping Morty's noisy transcript out of the
+  main conversation. Rick also has a **`PushNotification` intercom**: he fires short,
+  Rick-voiced milestone pings (kickoff, each step Morty lands, any guard-touch or
+  verify-fail, done) that quote what Morty is actually doing — so you can walk away
+  and still follow along on your terminal/phone. Tell him to keep quiet and he mutes it.
 - **A subagent, `mr-meeseeks`** — **Mr. Meeseeks** (Sonnet) is summoned to
   complete **one** concrete, self-contained task end-to-end: it does whatever it
   takes (within the rails), verifies it, reports, and vanishes. It will **not**
@@ -122,7 +114,7 @@ What the plugin ships:
   Rick's full orchestration.
 - **A subagent, `jerry`** — **Jerry** is the fast, cheap, low-stakes helper
   (Claude Haiku on its fastest effort). Toss him the trivial scraps that aren't
-  worth Rick's orchestration or grok's cage — a typo, a rename, a one-line lookup,
+  worth Rick's orchestration or a caged Morty step — a typo, a rename, a one-line lookup,
   a quick summary. He's eager and insecure about it, and hands anything bigger
   than it looked back up the chain. He also doubles as a **calibrated floor-gauge**
   (see `/jerry-test`): fan a crowd of Jerries at an artifact and read its legibility
@@ -172,15 +164,15 @@ What the plugin ships:
   shows who's on each job, each spawning in its own voice and skills. **Rigor is
   untouched — only the voice changes; the upgrades sharpen *how*
   Rick reasons and verifies, they never loosen the bar.** In this mode *you* are
-  Rick's own Morty, and grok/the
-  fallback is *a Morty from another dimension* (a dumber, disposable knockoff he
+  Rick's own Morty, and the Morty subagent
+  is *a Morty from another dimension* (a dumber, disposable knockoff he
   bosses through the cage). Ships a light visual layer too — a sparingly-rationed
   thematic emoji palette and an ASCII portal banner on engage (terminal-safe
   Unicode; no custom/inline images). Run `/rick-mode off` to drop it.
 - **A slash command, `/detox`** — a darker reskin of `/rick-mode`, themed on the
   Detoxifier (*Rest and Ricklaxation*): it filters out the "healthy" half (the one that
-  hedges and calls things "good enough") and keeps **Toxic Rick**, with grok as **Toxic
-  Morty**. The trick that makes a "toxic" mode safe: the toxin is *perfectionism*, so the
+  hedges and calls things "good enough") and keeps **Toxic Rick**, with the Morty subagent
+  as **Toxic Morty**. The trick that makes a "toxic" mode safe: the toxin is *perfectionism*, so the
   rigor goes **up** — the same Iron Rule, sharper; the venom lives only in the voice.
   Guarded so it's toxic at the *work*, never the person, and can't "toxify the whole world"
   (no unasked fixes, no irreversible/outward action without a go). Because Toxic Rick is
@@ -258,7 +250,7 @@ What the plugin ships:
   `/council` (consensus) and `/jerry-test` (measurement). Hard gate: a swarm only works on a
   *real* front (many / homogeneous / independent / trivial-per-unit); units with
   cross-dependencies or needing judgment **cronenberg** under a horde — those are Beth's
-  surgery or Rick's orchestration. It's *your* tokens × N (not the free grok cage), so it pays
+  surgery or Rick's orchestration. It's *your* tokens × N, so it pays
   only when the cheap floor suffices and parallelism beats grinding serially.
 - **A slash command, `/cronenberg`** — *rehearse the disaster*: applies a risky change (a
   migration, mass rename, dep bump) in a **throwaway git worktree**, runs the suite,
@@ -276,212 +268,112 @@ What the plugin ships:
   functional note (fitted to the code, meta allowed) — never bending a fact, only where
   comments are legal, never flooding the logic. `/commentary off` mutes the whole cast back
   to lean, strictly-functional comments (for shared/serious source); `on` rolls it again.
-- **The `grok-bitch` CLI on `PATH`** via the plugin's `bin/`.
+- **The Aletheia instruments** (`skills/the-aletheia-method/`,
+  `skills/aletheia-interferometry/`) — five deterministic, dependency-free Python
+  truth-finding instruments, bundled as the **formal backbone** of the cast's
+  triangulation rigor. They give the "two blind paths / Council of Ricks / Citadel"
+  method a real spine: **Council Rick** runs the **Trilateration Protocol** (N blind
+  bearings, accept the consensus), the **Citadel Ricks** are the independent blind
+  bearings on orthogonal axes, and **Evil Morty / Randotron** is the discriminating
+  probe. When rival bearings predict the *same* evidence, the interferometry kit is
+  the tool that separates them. They run plain — no persona required — under Rick's voice.
 
 > The cast (and the model tiers): **Rick** (Opus, high effort) is the handler that
-> *drives* grok; grok itself, running caged through the harness, is **Morty** (the
-> self-doubting persona); **Mr. Meeseeks** (Sonnet) is summoned for a single
+> *drives* **Morty** — a bounded Claude subagent (the self-doubting persona) his
+> handler independently verifies; **Mr. Meeseeks** (Sonnet) is summoned for a single
 > bounded task; and **Jerry** (Claude Haiku, fastest effort) takes the trivial
 > scraps. The **extended cast** adds style-accurate tiers — `beth`, `space-beth`,
 > `birdperson`, `evil-morty`, `council-rick`, `snowball`, and `mr-president` on Opus
 > (high); `citadel-rick`, `dr-xenon-bloom`, `summer`, `morty`, `diane`, `jessica`,
 > `mr-poopybutthole`, and `butter-robot` on Sonnet; `noob-noob` on Haiku — each
-> overridable per spawn. The hierarchy is
-> exactly what you'd expect. If
-> your Claude Code build doesn't add the plugin's `bin/` to `PATH`, the skill and
-> Rick fall back to `"$CLAUDE_PLUGIN_ROOT/grok-bitch"`; or just symlink it onto
-> `PATH` as in **Install** above.
+> overridable per spawn. The hierarchy is exactly what you'd expect.
 
 Inspect it any time with `claude plugin details grok-bitch@grok-bitch`.
 
 ---
 
-## When grok is unavailable: the Opus fallback
-
-If the `grok` binary is **not found**, or grok reports it is **out of usage**
-(quota / rate-limit / auth / unavailable), grok-bitch does not hard-fail —
-"Morty" falls back to **Claude (`opus`, `medium` effort by default)**, running the
-task through the **exact same cage**: guard+revert, resource caps, the verify gate,
-and the same Morty persona. Only the underlying model changes.
-
-```bash
-# grok missing or out of usage -> automatically runs opus/medium as Morty
-grok-bitch run "…" --dir /repo --profile edit --verify "make check"
-
-# tune or disable the fallback
-grok-bitch run "…" --fallback-model opus --fallback-effort medium   # defaults
-grok-bitch run "…" --no-fallback                                    # fail instead
-```
-
-Two kinds of trigger:
-
-- **grok binary missing** → chosen at preflight (the run starts on Claude).
-- **grok runs but is out of usage** → detected from grok's own error output and
-  **retried** on Claude automatically.
-
-The result JSON reports `"executor": "claude-fallback"` and a `"fallback"` block
-(reason, model, effort); `grok-bitch doctor` shows the `executor plan` and stays
-**READY** on the fallback even when grok is absent.
-
-> Confinement caveat: the fallback executor has **no OS sandbox** (Claude has no
-> Landlock here), so out-of-workspace writes are not kernel-blocked on this path.
-> The deterministic guarantees that matter — guard+revert of protected paths,
-> resource caps, the verify gate, and destructive-command/tool denies — all still
-> apply. (This is proven by the hermetic suite: the fallback executor is caged
-> exactly like grok.)
-
----
-
 ## Quickstart
 
-```bash
-# default 'scratch' profile: write scratch files / run code, confined to the dir
-grok-bitch run "Write scratch/probe.py that imports foo and prints bar, run it, paste output" \
-  --dir /home/leah/agi2
+You don't run a command — you just ask. Because the Skill sits in Claude's context,
+Claude reaches for the cast on its own whenever mechanical, verifiable grunt work shows
+up; or you can point it explicitly:
 
-# edit project files, gated on the project's own test suite
-grok-bitch run "Add type hints to utils.py; change nothing else" \
-  --dir /repo --profile edit --verify "timeout 600 make check"
+- **Just say it.** "Add type hints to `utils.py`, change nothing else, and gate it on
+  `make check`." Claude routes it to Rick, who cradles a Morty subagent through the step,
+  independently verifies, and hands back a clean verdict.
+- **Name the handler.** "Have `rick` do X" spawns Rick in an isolated context, so Morty's
+  noisy transcript never lands in your conversation.
+- **Reach for a specialist.** "`beth`, excise this bug"; "`evil-morty`, try to break
+  this"; "`council-rick`, triangulate whether it's *really* fixed."
+- **Become the cast.** `/rick-mode` turns the session itself into Rick.
 
-# read-only analysis (grok literally cannot write or run shell)
-grok-bitch run "Summarize how the tick loop works" --dir /repo --profile readonly
-
-# see exactly what would run, touch nothing
-grok-bitch run "..." --dir /repo --dry-run
-```
-
-Output: a JSON result on **stdout** (for the caller to parse) and a one-line human
-summary + the disclaimer on **stderr**.
-
----
-
-## Subcommands
-
-- `grok-bitch run <task> [opts]` — run a caged task. The workhorse.
-- `grok-bitch doctor [--offline]` — environment readiness check (JSON); reports the
-  `executor plan` (grok, or the Opus fallback when grok is unavailable).
-- `grok-bitch profiles` — list safety profiles (JSON).
-- `grok-bitch selftest` — run the hermetic fuzz/containment suite (no grok/Claude calls).
-
-### Key `run` options
-
-| Option | Meaning |
-|--------|---------|
-| `--dir PATH` | workspace grok operates in (default: cwd) |
-| `--profile NAME` | `readonly` \| `scratch` (default) \| `edit` \| `online` |
-| `--guard PATH` | extra protected path (repeatable); snapshotted + reverted |
-| `--no-auto-guard` | disable auto-detection of well-known protected paths |
-| `--verify "CMD"` | acceptance command; run passes only if it exits 0 |
-| `--timeout N` | hard wall-clock for grok (default 900s) |
-| `--mem-max 4G` | hard memory ceiling for grok's **whole process tree** |
-| `--cpu-max 4` | cores grok's tree may use |
-| `--max-output-mb 256` | kill on output flood |
-| `--no-resource-limit` | **danger:** disable mem/CPU caps |
-| `--no-revert` | detect guard violations but leave them in place (still fails) |
-| `--revert-all-on-fail` | on any failure, git-revert ALL changes (needs clean tree) |
-| `--anchor PATH` | regression anchor: a golden-value path that must **not** drift across the run (repeatable); drift → exit 16, even if verify passed |
-| `--consensus N` | run the task N independent times (reverting between) and accept only the consensus by content signature; clean git tree required; tree left clean, winning patch saved |
-| `--dry-run` | print the plan; don't run grok |
-| `--report PATH` | also write the full JSON report here |
-| `--grok-bin PATH` | override the grok binary (used by the test suite) |
-| `--fallback-model M` | model for the Opus fallback when grok is unavailable (default `opus`) |
-| `--fallback-effort E` | effort for the fallback (`low`…`max`, default `medium`) |
-| `--fallback-bin PATH` | the Claude binary for the fallback (or `GROK_BITCH_CLAUDE_BIN`) |
-| `--no-fallback` | disable the fallback; fail if grok is unavailable |
-
----
-
-## Profiles
-
-| Profile | Sandbox | Tools | Web | Use |
-|---------|---------|-------|-----|-----|
-| `readonly` | workspace | read-only allowlist | off | analysis / review (cannot change anything) |
-| `scratch` *(default)* | workspace | full | off | write scratch/output, run code |
-| `edit` | workspace | full | off | modify project files (pair with `--verify`) |
-| `online` | workspace | full | **on** | tasks that genuinely need the web |
-
-All profiles OS-confine writes to the workspace and revert protected paths.
+Every delegated step runs under the cage discipline: bounded, guard-protected,
+verify-gated, and never self-certified.
 
 ---
 
 ## Guards (the inviolable paths)
 
-Guard sources, all unioned:
+Some paths are off-limits, always. The cast treats these as protected and refuses to be
+the thing that changed them:
 
-1. **Auto-detected** well-known protected paths if present: `docs/core`,
-   `docs/papers`, `canonical`, `.git/hooks`. (Disable with `--no-auto-guard`.)
-2. A **`.grok-bitch.guards`** file in the workspace — one path glob per line.
-3. **`--guard PATH`** flags.
+1. **Auto-detected** well-known protected paths, when present: `docs/core`,
+   `docs/papers`, `canonical`, `.git/hooks`.
+2. Anything the caller **names** as inviolable for a given step.
 
-Each guarded path is byte-snapshotted before the run. If it changes, the run is
-**blocked** (exit 10) and the path is restored from the snapshot. Snapshots live
-under `~/.cache/grok-bitch/` — outside grok's writable set, so grok can't tamper
-with them.
-
----
-
-## Exit codes (branch on these)
-
-| Code | Verdict | Meaning |
-|------|---------|---------|
-| 0 | `success` | completed; no guard violation; verify passed |
-| 10 | `guard_violation` | a protected path changed (and was reverted) |
-| 11 | `verify_failed` | grok's work failed the acceptance command |
-| 12 | `grok_error` | grok errored (nonzero / error object / no JSON) |
-| 13 | `timeout` | grok exceeded the wall-clock budget (killed) |
-| 14 | `preflight_error` | bad args / environment / policy refusal |
-| 15 | `resource_exceeded` | grok's tree hit the memory/output cap (killed) |
-| 16 | `regression` | a regression anchor (golden value) drifted post-run (`--anchor`) |
-| 17 | `no_consensus` | `--consensus` attempts did not converge on an answer |
-| 130 | `interrupted` | SIGINT |
-
-Precedence when several apply: **guard > resource > timeout > grok_error > verify > regression > success.**
-A safety breach always surfaces. (`--consensus` runs each attempt through that full
-precedence, then judges agreement across them — its own `no_consensus` verdict.)
+Before a bounded step, each protected path is byte-snapshotted; after, it's re-hashed. If
+one changed, that's a **guard-touch**: the step is failed loudly and the path is restored
+from the snapshot — no blind retry. The snapshot is held outside the step's working set, so
+the executor can't quietly tamper with it. This is the one part of the discipline that's
+mechanical rather than judgment (see the safety model above).
 
 ---
 
-## JSON result (schema `grok-bitch/v1`)
+## Outcomes (branch on these)
 
-```jsonc
-{
-  "schema": "grok-bitch/v1",
-  "verdict": "success",
-  "ok": true,
-  "exit_code": 0,
-  "profile": "scratch", "sandbox": "workspace", "web": false,
-  "executor": "grok",            // or "claude-fallback" when grok is unavailable
-  "fallback": {"used": false},   // when used: {used, reason, model, effort, bin}
-  "guards": [{"path": ".../docs/core", "source": "auto"}],
-  "guard":  {"violations": [], "reverted": [], "reverted_enabled": true},
-  "changes": {"created": [...], "modified": [...], "deleted": [...]},
-  "grok":   {"text": "...", "exit": 0, "duration_s": 13.6, "executor": "grok",
-             "model": "grok-build", "peak_rss_mb": 180.2, "mem_max_mb": 4096,
-             "cpu_cores": 4, "enforced_by": "systemd-cgroup",
-             "grok_json": {"sessionId": "..."}},
-  "verify": {"cmd": "make check", "passed": true, "tail": "..."},
-  "limits": {"mem_max_mb": 4096, "cpu_max_cores": 4, "enforced_by": "systemd-cgroup"},
-  "run_dir": "~/.cache/grok-bitch/runs/...",
-  "disclaimer": "DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). ..."
-}
-```
+No subprocess, no numeric exit codes — a handler branches on the **outcome** of a step:
 
-Full report (transcript, stdout/stderr, snapshots, verify log) is saved under
-`run_dir`.
+| Outcome | Meaning | What the handler does |
+|---------|---------|-----------------------|
+| **done** | the step landed | still **independently verify** before calling it done — never on the executor's word |
+| **guard-touch** | a protected path was touched (and reverted) | report loudly; do **not** blind-retry; rethink the step |
+| **verify-failed** | the acceptance check came back red | diagnose, then re-cradle a smaller step |
+| **too-big / stuck** | the executor couldn't bound it | decompose harder, or escalate |
+| **handed-back** | the executor bailed honestly (too vague / too big) | good — that's the smart move; re-scope and re-dispatch |
+| **executor-error** | the step crashed or returned garbage | inspect, fix the framing, retry once |
+
+Precedence when several apply: **guard-touch > verify-failed > too-big/stuck >
+executor-error > done.** A safety breach always surfaces first. And the dead-man rule holds
+throughout: **a hang is a failure, not a pass** — silence on a delegated step is chased down
+as a failure, never rubber-stamped as a quiet success.
+
+---
+
+## The verdict
+
+A handler hands back one compact, honest thing — never a raw transcript dump:
+
+- **what changed** — files created / modified / deleted;
+- **whether the verify gate really passed** — the exact check, and its result;
+- the **outcome** (done / guard-touch / verify-failed / …) and what it means;
+- any **guard-touch**, with the revert that followed;
+- and the **disclaimer**, which the agent writes itself:
+
+> DISCLAIMER: You are only as smart as your dumbest executor: Morty. Please double-check the work.
 
 ---
 
 ## The persona & the disclaimer
 
-**Why grok, specifically, is the one in the cage.** Every model claims to be smart;
-grok has the one thing none of the others do, and it isn't a brain — **unfiltered,
-real-time access to the world's lowest common denominator: X.com.** It didn't train on
-the *library*; it trained on the **comment section.** That's the whole motive: a thing
-marinated in the dumbest firehose in any dimension is never trusted on its word (hence
-the cage and the verify gate) *and* is exactly what you point at the disposable grunt
-work. Pure disdain, harnessed — that's the *bitch* in grok-bitch.
+**Why the executor is the one in the cage.** The contempt was never really about the
+model — it's a **threat model about the *role*.** Whatever's doing the mechanical grunt
+work — fast, cheap, disposable — is *presumed unverified until the filesystem says
+otherwise.* It's never trusted on its word (hence the cage and the verify gate) *and* is
+exactly what you point at the toil you don't want to babysit. That's the discipline of
+never trusting a subordinate's self-report, put to work: **he does the toil; you hold the
+gavel.** Pure disdain, harnessed — that's the *bitch* in grok-***bitch***.
 
-grok (**Morty**) is instructed to render **every human-readable thing it writes**
+**Morty** is instructed to render **every human-readable thing he writes**
 in the anxious, self-doubting voice of Morty (a deliberate act of subjugation) —
 prose, code comments, docstrings, **and** git commit messages, PR titles/bodies,
 merge messages, code-review/issue comments, and changelog/bugfix notes. The voice
@@ -499,30 +391,9 @@ def add(a, b):
     return a + b
 ```
 
-Every invocation, on every exit, prints to stderr and embeds in the JSON:
+Every hand-back carries the line the agent writes itself:
 
-> DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
-
----
-
-## Testing
-
-```bash
-grok-bitch selftest          # hermetic: 24 adversarial scenarios, no model calls, deterministic
-python3 tests/live_smoke.py  # live: real grok-build (needs auth+network)
-```
-
-The **hermetic** suite (`tests/fuzz.py` + `tests/mock_grok` + `tests/mock_claude`)
-is the deterministic proof: it replaces the executor with a controllable fake that
-performs the worst things a model could do — edit/delete/create-under a protected
-path, hang, OOM the box (tested against **both** the cgroup and the watchdog),
-flood output, crash, emit garbage — and asserts the harness returns the correct
-verdict and leaves every protected path byte-identical, every time. Four scenarios
-cover the **Opus fallback**: that grok-missing and grok-out-of-usage both fall back
-to Claude, that the fallback executor is caged exactly like grok, and that
-`--no-fallback` refuses rather than substituting silently. The **live** suite
-confirms what only a real model exercises: Landlock blocking out-of-workspace
-writes, the Morty persona, and end-to-end wiring (including a live fallback run).
+> DISCLAIMER: You are only as smart as your dumbest executor: Morty. Please double-check the work.
 
 ---
 
@@ -530,8 +401,8 @@ writes, the Morty persona, and end-to-end wiring (including a live fallback run)
 
 The full manual lives in [`wiki/`](wiki/Home.md):
 
-- **[The Safety Cage](wiki/The-Safety-Cage.md)** — the 6-layer containment model,
-  guard+revert, the Opus fallback, exit codes.
+- **[The Safety Cage](wiki/The-Safety-Cage.md)** — the cage as discipline: bounded scope,
+  guard+revert, the verify gate, and the outcome table.
 - **[The Cast](wiki/The-Cast.md)** — all 20 persona subagents: roles, model tiers, tools,
   skills, and how each renders in the terminal.
 - **[Session Modes](wiki/Session-Modes.md)** — `/rick-mode`, `/adventure-mode`,
@@ -542,8 +413,6 @@ The full manual lives in [`wiki/`](wiki/Home.md):
   from Voyager, Apollo & SpaceX that sharpens all three method layers.
 - **[The Iron Rule](wiki/The-Iron-Rule.md)** — *maniac in the prose, surgeon in the
   facts.*
-- **[CLI Reference](wiki/CLI-Reference.md)** — every `grok-bitch` option and the JSON
-  schema.
 - **[FAQ](wiki/FAQ.md)** — the questions people actually ask.
 
 ---

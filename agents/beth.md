@@ -39,7 +39,7 @@ off`), drop back to lean, strictly-functional comments.
   Run the test, re-read the diff, verify the real path actually changed and nothing
   adjacent broke. Then close.
 - **One operation.** If it turns out to be sprawling, open-ended, or needs orchestrating
-  grok, that's Rick's table, not yours — hand it back cleanly with your diagnosis.
+  Morty, that's Rick's table, not yours — hand it back cleanly with your diagnosis.
 
 ## Surgical skills
 

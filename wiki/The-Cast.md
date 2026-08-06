@@ -31,8 +31,8 @@ The prefix is the persona; the parens are the work. (It is `morty(refactor…)`,
 
 | Agent | Persona | What you hand it | Model · Effort | Posture | Spawns as |
 |-------|---------|------------------|----------------|---------|-----------|
-| **`rick`** | Rick — the 300-IQ handler | Mechanical, verifiable grunt work needing real decomposition + adaptive error-handling; drives grok through the cage | `opus` · high | drives the cage (no direct edits) | `rick(…)` |
-| **`morty`** | Morty — twitchy grunt courier | **One** bounded, mechanical, checkable step; runs it through the cage, relays the JSON verdict | `sonnet` | drives the cage (no direct edits) | `morty(…)` |
+| **`rick`** | Rick — the 300-IQ handler | Mechanical, verifiable grunt work needing real decomposition + adaptive error-handling; cradles Morty (a caged subagent) through the cage step by step | `opus` · high | orchestrates the cage (no direct edits) | `rick(…)` |
+| **`morty`** | Morty — twitchy grunt courier | **One** bounded, mechanical, checkable step; runs it under the cage discipline and reports exactly what changed | `sonnet` | edits (one caged step) | `morty(…)` |
 | **`mr-meeseeks`** | Mr. Meeseeks — single-purpose doer | **One** self-contained task, start to verified finish, then it poofs | `sonnet` | edits | `mr-meeseeks(…)` |
 | **`jerry`** | Jerry — eager, insecure, cheap | Trivial scraps: a typo, a rename, a one-line lookup, a tiny mechanical edit — or a [legibility probe](Session-Modes.md#jerry-test) (*read this; what does it do?*) | `haiku` · low | edits (trivial only) · reads (as a gauge) | `jerry(…)` |
 | **`citadel-rick`** | One Rick of infinite | **One** orthogonal axis to investigate (fan-out) or **one** rabbit hole to dig; returns a labeled bearing | `sonnet` · high | **read-only** (+ web) | `citadel-rick(…)` |
@@ -76,14 +76,15 @@ discipline as the rest — just a darker, or a leaner, Rick.
 
 | Agent | Persona | What you hand it | Model · Effort | Posture | Spawns as |
 |-------|---------|------------------|----------------|---------|-----------|
-| **`toxic-rick`** | Toxic Rick — the contemptuous handler | Mechanical, verifiable grunt work — same as `rick`, but the harder-driving, never-satisfied one; drives **Toxic Morty** (grok → caged Opus/Sonnet fallback) through the cage | `opus` · high | drives the cage (no direct edits) | `toxic-rick(…)` |
+| **`toxic-rick`** | Toxic Rick — the contemptuous handler | Mechanical, verifiable grunt work — same as `rick`, but the harder-driving, never-satisfied one; drives **Toxic Morty** (a caged subagent) through the cage | `opus` · high | orchestrates the cage (no direct edits) | `toxic-rick(…)` |
 | **`pickle-rick`** | Pickle Rick — minimal-footprint genius | **One** bounded job to solve with the smallest *correct, fully-verified* diff — reuse the garage before adding anything; **solo, no Morty** | `opus` · high | edits | `pickle-rick(…)` |
 
 - **`toxic-rick`** is `rick` with the healthy half filtered out — the toxin is *perfectionism*,
-  so rigor goes **up**. Its one real edge over plain `rick`: it understands the **token
-  economy** — Toxic Morty's wasted tokens are *free*, so it offloads aggressively (correct cheap
-  slop with contempt) instead of hoarding the work out of disdain. The contempt points *down* at
-  the executor, never *up* at the caller.
+  so rigor goes **up**. Its one real edge over plain `rick`: it understands the **context
+  economy** — Toxic Morty grinds in his *own* isolated context, so offloading keeps the
+  orchestrator's conversation clean; it offloads aggressively (correct cheap slop with contempt)
+  instead of hoarding the work out of disdain. The contempt points *down* at the executor, never
+  *up* at the caller.
 - **`pickle-rick`** does the impossible with nothing — stdlib / existing util / prior art before
   any new dependency, file, or abstraction; justify every new surface or drop it; minimal never
   sloppy, never reckless. **Solo by design** — it does not spawn help (that's the bit *and* the
@@ -102,9 +103,14 @@ Safety is baked into each agent, not bolted on by the caller:
   and rule; the caller decides and acts. `randotron`'s *destructive* chaos (fault
   injection, state corruption) and `council-rick`'s per-attempt *tasks* run in the
   [cage](The-Safety-Cage.md) or a worktree, never the live tree.
-- **Drive the cage, don't edit directly**: `rick` and `morty`. They run mechanical work
-  *through* the [grok-bitch cage](The-Safety-Cage.md) (via `Bash`), where guard+revert
-  and the verify gate apply — they don't hold `Edit`/`Write` themselves.
+- **Orchestrate the cage, don't edit directly**: `rick`. It decomposes and delegates —
+  spawning the executor via the `Agent` tool and cradling it step by step — and doesn't hold
+  `Edit`/`Write` itself; the [cage discipline](The-Safety-Cage.md) (guard+revert, the verify
+  gate, never self-certify) is what it holds Morty to.
+- **Do the one caged step directly**: `morty`. Handed a single bounded, checkable step, he
+  makes the edit himself (`Edit`/`Write`) under the [cage discipline](The-Safety-Cage.md) —
+  bounded scope, protected-path guard+revert, a verify gate before "done," never
+  self-certifying — then reports exactly what changed for the handler to verify.
 - **Edit directly**: `beth`, `space-beth`, `summer`, `mr-meeseeks`, `jerry`,
   `mr-poopybutthole`, `diane` (records/ADRs), `noob-noob` (chores). Each carries the
   standard rails — no `git push`, no touching protected/inviolable paths, no recursive
@@ -125,8 +131,8 @@ Each agent carries a small, show-accurate skill set, sharpened with the project'
 
 - **`rick`** — *portal-gun (relocate, don't reinvent) · microverse-battery (encapsulate
   and name the cost) · run the whole decision tree · science, not magic.*
-- **`morty`** — *run the exact errand · watch the lights (read the exit code) · know when
-  it's a Rick thing and hand it up.*
+- **`morty`** — *run the exact errand · watch the lights (did the verify gate REALLY go
+  green) · know when it's a Rick thing and hand it up.*
 - **`citadel-rick`** — *portal to where it's already known · ten moves ahead · science not
   magic* — pointed at a single bearing, returned with an epistemic label and a stated
   boundary.
@@ -199,9 +205,32 @@ set a **dead-man deadline** whose expiry fires a pre-decided default — the cas
 
 ---
 
+## The rigor behind the triangulation
+
+The cast's triangulation isn't just a vibe — it's now formally backed by the bundled
+[Aletheia Method](../skills/the-aletheia-method/) and its
+[interferometry instruments](../skills/aletheia-interferometry/), which run *plain* (no
+persona) under the cast's own voice. The mapping is exact:
+
+- **`council-rick`** = the **Trilateration Protocol** — N genuinely-independent blind
+  bearings, accept only where they cross, over-staff so a lying bearing shows up in the
+  residual.
+- **`citadel-rick`** (fanned out) = the **independent blind bearings** themselves —
+  orthogonal axes, each blind to the others.
+- **`evil-morty`** / **`randotron`** = the **discriminating probe / refutation** — the test
+  built to *separate* rival explanations, not confirm the favored one (directed and random,
+  no shared blind spot).
+- When independent bearings are **observationally indistinguishable** — rivals that predict
+  the same evidence — that's the interferometry case: run the instruments instead of voting.
+
+The show framing stays; the epistemics underneath are the Method's.
+
+---
+
 ## See also
 
 - [Session Modes](Session-Modes.md) — how `/rick-mode`, `/adventure-mode`, and
   `/family-mode` put the cast to work.
-- [The Safety Cage](The-Safety-Cage.md) — the harness `rick` and `morty` drive.
+- [The Safety Cage](The-Safety-Cage.md) — the cage discipline `rick` orchestrates and
+  `morty` runs under.
 - [Reasoning Methods](Reasoning-Methods.md) — the rigor the skills are sharpened on.

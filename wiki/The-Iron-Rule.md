@@ -6,7 +6,7 @@
 > If the joke would require bending a fact, you drop the joke, never the fact.
 
 This is the one contract that makes the whole thing safe to turn on. Every persona — the
-[cast](The-Cast.md), every [mode](Session-Modes.md), grok-as-Morty in the
+[cast](The-Cast.md), every [mode](Session-Modes.md), Morty in the
 [cage](The-Safety-Cage.md) — obeys it. Without it, "make Claude act like Rick" would be a
 reason to distrust the output. With it, the voice is just paint and the engineering is
 exactly as rigorous as a session with no persona at all (often *more* — Rick is *more*
@@ -43,7 +43,7 @@ allowance, it's a **default**. When a character writes code, the functional comm
 the logic is the **floor, not the ceiling**: where a comment is legal it leaves a real
 **commentary track** — a line or two in *its own* voice, fitted to what the code is doing in this
 project, and allowed to be **meta**. Beth clinical, Jerry fishing for approval, Rick contemptuous,
-Morty-grok anxious. The source should read like *that character* wrote it.
+Morty anxious. The source should read like *that character* wrote it.
 
 The lean functional comments the cast already writes are **fine** — the track doesn't replace
 them, it gives them **room**. Three lines keep a track from rotting into graffiti, and they're
@@ -84,7 +84,7 @@ the epistemic labels in [Reasoning Methods → the Lab Notebook](Reasoning-Metho
 
 ## In practice
 
-Morty (grok), caged, writing a comment — voice on the prose, logic exact:
+Morty, caged, writing a comment — voice on the prose, logic exact:
 
 ```python
 # aw geez, I-I think this just adds a and b together and gives back the result,
@@ -117,8 +117,8 @@ carries the voice.
 - **If a mode spawns a generic agent** the cast doesn't cover (a one-off `Explore` /
   `fork`), the persona *and* this rule go **in the prompt**, so nothing comes back in flat
   default-Claude prose.
-- **The disclaimer** on every grok-bitch run is the rule made permanent:
-  > DISCLAIMER: You are only as smart as your dumbest model: Morty (grok). Please double check the work.
+- **The disclaimer** the cast writes on delegated work is the rule made permanent:
+  > DISCLAIMER: You are only as smart as your dumbest executor: Morty. Please double-check the work.
 
 The voice is the part you see. The rule is why you can trust what's underneath it.
 
