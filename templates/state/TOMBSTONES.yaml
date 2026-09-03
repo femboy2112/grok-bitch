@@ -1,0 +1,13 @@
+# TOMBSTONES — our killed approaches, so the walk never re-treads a dead path. The
+# counterexample stays carved on the stone. Grep by keyword BEFORE funding any approach;
+# >=2 shared keywords increments that stone's recurrence (Robustness #12 made real).
+# Append-only.
+version: 1
+entries:
+  - id: T-0001                 # monotone; never reused
+    approach: "<the approach that was killed, one line>"
+    killed_by: "<Refuted[counterexample] | hits O-#### | budget exhausted>"
+    evidence_sha256: "<hex of the killing artifact, if computed>"
+    hits_obstruction: "<O-#### if it relocated to a known barrier>"
+    recurrence: 0              # +1 each time a fresh approach re-hits this by keyword
+    keywords: ["<key>", "<terms>", "<for grep>"]

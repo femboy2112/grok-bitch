@@ -206,6 +206,16 @@ and barrier literacy for Collatz / RH / P-vs-NP — lives **on demand** in
 micro-examples in the sibling `mathematical-moves-verify.py`. Load it when the six moves above
 don't unstick you; keep it out of the hot path until then.
 
+## On a long pursuit, persist — or it didn't happen
+
+A hunt that spans sessions needs a substrate the transcript can't provide: the transcript is
+gone at compaction, and an approach you killed last week gets re-walked next week. State lives
+in your *research repo*, not here — copy [`templates/state/`](../../templates/state/) in once
+and run its open / pre-dig / close rituals, so the frontier, the killed approaches (with
+keywords, so you never re-tread them), the barriers, the lemma bank, and the open debts all
+survive a session. Nothing above certifies its way forward if it forgets what it already
+learned. That's the difference between a walk and 200 restarts.
+
 ## Examples (Agent-tool dispatch)
 
 ```text

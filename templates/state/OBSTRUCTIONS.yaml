@@ -1,0 +1,13 @@
+# OBSTRUCTIONS — the barrier map. A barrier is a theorem "no proof of shape K settles this."
+# Its value is PRUNING: each entry removes strategies AND adds to the must-use list.
+# One of the two structures even a mature pursuit like Collatz/C lacks. Append-only.
+version: 1
+entries:
+  - id: O-0001                 # monotone; never reused
+    name: "<the barrier's name, e.g. Conway 1972 undecidability of generalized maps>"
+    blocks: "<which proof shapes / strategies it kills>"
+    established_by: "<citation — the theorem that proves the barrier>"
+    label: "Disclosed[recalled]"       # Boundary[proof] once the barrier itself is verified
+    where_it_stops: "<the exact frontier the barrier leaves open>"
+    must_use: "<what any successful proof is therefore forced to contain>"
+    resurrection_condition: "<what would make an approach past this barrier viable again>"

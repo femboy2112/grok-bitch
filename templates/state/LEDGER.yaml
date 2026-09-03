@@ -1,0 +1,14 @@
+# LEDGER — the lemma bank. One typed label per claim; boundary REQUIRED and non-empty.
+# A Verified claim names TWO independent routes of different oracle class with equal
+# result digests. No silent upgrades: a promotion is an event that costs the second route.
+version: 1
+entries:
+  - id: L-0001                 # monotone; never reused
+    claim: "<the claim, stated falsifiably with its scope>"
+    label: "Observed[cmd -> output]"   # Verified[route-A | route-B] | Observed[..] | Conjectured[pays-off-if:] | Dark[lamp:] | UNVERIFIED[wall] | Refuted[counterexample] | Boundary[proof]
+    witnesses:                         # for Verified: two routes, equal result_sha256
+      - route: "<method / tool / implementation>"
+        result_sha256: "<hex, if a computed value>"
+    boundary: "<what this does NOT establish — may never be empty>"
+    history:                           # append-only; relabels recorded, never erased
+      - "<date>: created as Observed"

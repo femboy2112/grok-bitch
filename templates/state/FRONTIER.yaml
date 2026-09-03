@@ -1,0 +1,14 @@
+# FRONTIER — the subgoal tree = the proof skeleton. The frontier is the set of
+# unproved leaves; progress is measured as leaves CLOSED, not pages written.
+# TEMPLATE: copy into your research repo's state/ dir. This is not live state.
+version: 1
+goal: "<the one-line objective of this pursuit>"
+bottleneck: "<the single subgoal whose resolution unlocks the most> (unchanged, n sessions)"
+nodes:
+  - id: F-0001                 # monotone; never reused, never renumbered
+    statement: "<the subgoal, stated falsifiably>"
+    status: open               # open | closed | blocked | refuted
+    label: "Conjectured[pays-off-if: <check>]"   # typed label; grok-bitch ledger grammar
+    attempts: 0
+    blocked_by: []             # ids of obstructions (O-*) or sibling leaves
+    cheapest_falsifier: "<the cheapest test that would kill this leaf>"

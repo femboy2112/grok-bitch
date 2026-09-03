@@ -1,0 +1,13 @@
+# INCIDENTS — the signature -> mechanism -> verified-safe response log (Robustness #2/#3).
+# Grep this BEFORE opening a fresh dig on a resolved anomaly. Every open item is owned and
+# driven to closed/deferred; nothing silently evaporates. Repetition never launders an
+# unexplained anomaly to "fine" — that's the recurrence counter's job.
+version: 1
+entries:
+  - id: I-0001                 # monotone; never reused
+    signature: "<the observable anomaly signature you would grep for>"
+    mechanism: "<root mechanism once known — else 'Observed, unexplained'>"
+    response: "<the verified-safe response to apply next time>"
+    owner: "<who owns closing this>"
+    status: open               # open | closed | deferred
+    recurrence: 0              # unresolved recurrences of a still-unexplained signature

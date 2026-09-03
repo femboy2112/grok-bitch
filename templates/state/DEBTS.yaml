@@ -1,0 +1,9 @@
+# DEBTS — audacious guesses still owed. Every audacious guess opens a debt at birth.
+# Reports carry `open-debts: n`; nonzero blocks any downstream Verified. Integers only.
+version: 1
+entries:
+  - id: D-0001                 # monotone; never reused
+    claim: "<the audacious guess being run on credit>"
+    what_pays_it: "<the specific check / proof that would settle the debt>"
+    opened: "<session or turn opened>"
+    status: open               # open | paid | refuted
