@@ -15,11 +15,13 @@ claim and owes no block; the linter stays silent. It only grades a block that ex
 
 Modes:
   label_lint.py [FILE]   lint a report file (or stdin); human output; exit 1 on findings.
-  label_lint.py --hook   read a SubagentStop hook JSON on stdin, pull the last assistant
-                         message from transcript_path (JSONL), lint it, emit
-                         {"systemMessage": ...} on findings, and exit 0 ALWAYS.
+  label_lint.py --hook   read a SubagentStop hook JSON on stdin, take the stopped subagent's
+                         last assistant message (from 'last_assistant_message', else the
+                         'agent_transcript_path' JSONL — NOT 'transcript_path', which is the
+                         parent session), lint it, emit {"systemMessage": ...} on findings,
+                         and exit 0 ALWAYS.
 """
-import sys, os, re, json
+import sys, os, re, json, hashlib, time, tempfile
 
 TOP_TIER = r"Verified|Disclosed|Demonstrated|Confirmed"
 CORE_KEYS = ("outcome", "dissent", "open-debts")
@@ -135,15 +137,77 @@ def last_assistant_text(transcript_path):
     return text
 
 
+_DEDUP_TTL_SEC = 300
+_DEDUP_PATH = os.path.join(tempfile.gettempdir(), "grok_bitch_label_lint_dedup.json")
+
+
+def _recently_emitted(report):
+    """Idempotency guard. The harness can fire SubagentStop more than once per stop, so emit
+    a given advisory at most once per report body within a TTL window. Keyed on the report
+    TEXT itself: an identical re-fire is suppressed; a genuinely different subagent's report
+    still emits. Fail-OPEN: any dedup error falls straight through to emitting, because a
+    missed warning is worse than a duplicated one — the linter's job outranks its manners."""
+    key = hashlib.sha1(report.encode("utf-8")).hexdigest()
+    now = time.time()
+    try:
+        seen = {}
+        if os.path.exists(_DEDUP_PATH):
+            with open(_DEDUP_PATH, encoding="utf-8") as f:
+                seen = json.load(f)
+        # prune stale keys so the file can't grow without bound
+        seen = {k: t for k, t in seen.items()
+                if isinstance(t, (int, float)) and now - t < _DEDUP_TTL_SEC}
+        if key in seen:
+            return True
+        seen[key] = now
+        tmp = _DEDUP_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(seen, f)
+        os.replace(tmp, _DEDUP_PATH)  # atomic: never leave a half-written state file
+        return False
+    except Exception:
+        return False
+
+
+def _coerce_message_text(m):
+    """Flatten a last-assistant-message field to plain text. Handles the three shapes a
+    harness might hand us: a bare string, a message dict ({content|text: ...}), or a list of
+    content blocks ([{type: text, text: ...}, ...])."""
+    if isinstance(m, str):
+        return m
+    if isinstance(m, dict):
+        return _coerce_message_text(m.get("content", m.get("text", "")))
+    if isinstance(m, list):
+        return "".join(b.get("text", "") for b in m
+                       if isinstance(b, dict) and b.get("type") == "text")
+    return ""
+
+
+def _hook_report(hook):
+    """The stopped SUBAGENT's final assistant text, from whichever field this harness sets.
+    Prefer 'last_assistant_message' (supplied directly, and immune to the subagent transcript
+    not yet being flushed to disk when SubagentStop fires — an observed race). Fall back to the
+    subagent transcript at 'agent_transcript_path'. Deliberately NOT 'transcript_path': on this
+    harness that key is the PARENT session, and linting the orchestrator's own prose would fire
+    false advisories against the wrong agent."""
+    text = _coerce_message_text(hook.get("last_assistant_message"))
+    if text.strip():
+        return text
+    atp = hook.get("agent_transcript_path")
+    if atp:
+        return last_assistant_text(atp)
+    return ""
+
+
 def main(argv):
     if "--hook" in argv:
         try:
             hook = json.loads(sys.stdin.read())
         except ValueError:
             return 0
-        report = last_assistant_text(hook.get("transcript_path", ""))
+        report = _hook_report(hook)
         findings = lint(report) if report else []
-        if findings:
+        if findings and not _recently_emitted(report):
             msg = "grok-bitch label-lint (advisory) — " + "; ".join(findings)
             print(json.dumps({"continue": True, "systemMessage": msg}))
         return 0  # advisory only: NEVER block a subagent
