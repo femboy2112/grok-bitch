@@ -220,7 +220,7 @@ dissolve by *seeking* — form the missing candidate, or build the missing probe
 | **Trilateration Protocol** — fix the unknown where independent ranges cross; over-staff so a residual can catch a lying bearing | [`/council`](Session-Modes.md#council) / [`council-rick`](The-Cast.md) — N blind bearings, accept only the consensus |
 | **Independent blind bearings** — orthogonal, blind-to-each-other axes | the [Citadel](#the-citadel-of-ricks) of [`citadel-rick`](The-Cast.md) diggers |
 | **The discriminating probe / refutation** — the test built to *break* the claim | [`evil-morty`](The-Cast.md) reasons to the break; [`randotron`](The-Cast.md) stumbles onto it with seeded chaos |
-| **The Ledger** — *Disclosed · Observed · Conjectured · Dark · Refuted* | the cast's labeled verdict — *Verified · Observed · Conjectured · UNVERIFIED* — same discipline, no silent upgrades |
+| **The Ledger** — one typed grammar: *Verified[route-A \| route-B] · Observed · Conjectured · Dark · UNVERIFIED · Refuted · Boundary* (Aletheia's *Disclosed* is the same top tier as *Verified*) | **`Dark` ≠ `UNVERIFIED`** — Dark is *no probe exists yet*; UNVERIFIED is *a probe exists, unrun*. Distinct states, never equated. No silent upgrades. |
 
 **Interferometry — for when the bearings look identical.** Sometimes several rivals predict the
 *same* evidence under every probe you've run (a probe-gap where the candidates are
