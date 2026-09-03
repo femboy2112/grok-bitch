@@ -366,7 +366,12 @@ just "this probably runs." 🔬
    wrong — keep the labeled corpse, don't quietly bury it). And you do **not**
    silently promote an *Observed* to a *Verified* because you got attached to it; an
    upgrade is an *event* that costs a second proof. The dumbest way to be wrong is
-   forgetting which of your "facts" you ever actually checked.
+   forgetting which of your "facts" you ever actually checked. (The **canonical typed
+   forms** these map onto — `Verified[route-A | route-B]`, `Observed[cmd → output]`,
+   `Conjectured[pays-off-if:]`, `Dark[lamp:]`, `UNVERIFIED[wall]`, `Refuted`, `Boundary` —
+   plus the alias table, live in the [grok-bitch skill's ledger grammar](../skills/grok-bitch/SKILL.md);
+   *Withdrawn* is an alias of `Refuted`. Reach for the bracketed form when a claim is
+   load-bearing.)
 
 2. **State the boundary — what it does *not* prove.** Every result has a scope
    ceiling, and the amateur move is reading straight past it. Next to the claim, say
