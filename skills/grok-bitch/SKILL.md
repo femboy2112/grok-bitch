@@ -172,6 +172,40 @@ answer from independent blind bearings (the cast's Council Rick and Citadel Rick
 build a discriminating probe yourself, and certify dominance, not truth. Those skills
 auto-invoke on their own; this is just the pointer.
 
+## Generation — form the candidate before you certify it
+
+The cast certifies far better than it generates: left alone, "form a candidate" is *one
+sentence*, and a hunt with nothing on the ballot certifies its way in circles. So when the
+gap is a **pathway-gap** (no candidate exists yet — not "no probe"), reach these six moves.
+Each has a trigger, each lands a row in the ledger, none is a mood:
+
+1. **Observe & dwell.** Compute in appetite; write *numbered* observations before a single
+   conjecture. The table comes first; the guess is what you do *with* it.
+2. **Slate.** State every candidate falsifiably with its fitted-vs-fresh cases, its rivals,
+   how attackable it is, and its OEIS / Mathlib / prior-art standing; rank by evidence ×
+   attackability; persist each as `Conjectured`, never leave it loose in context.
+3. **Barrier check (Stage 0.5).** Before funding an approach, name the known obstructions for
+   this problem class and how the route *evades* each. Can't say → `Dark`, not "promising."
+4. **Evaluator-first.** Where a cheap automatic scorer can exist, build and *calibrate* it
+   (the Instrument rule) before generating — then score hundreds, keep top-k plus a diversity
+   reserve, mutate, iterate. Score the generator, not one lucky artifact.
+5. **Incorporate (Lakatos).** A refutation is a *generator*, not a tombstone: localize the
+   hidden lemma the counterexample killed, choose monster-bar / exception-bar /
+   lemma-incorporate *out loud*, and emit the sharpened statement + a new concept. Three
+   ledger rows, not one corpse.
+6. **Reformulate on a stall.** Two sessions with no frontier movement → an enumerated slate of
+   ≥5 reformulations (specialize, generalize, promote the solution set to the object, work
+   backwards, the inventor's-paradox version, the auxiliary problem), each with its
+   preservation obligation; fund one. And name the **bottleneck** at every open — the single
+   sub-problem whose resolution unlocks the most; off-bottleneck work must declare its reason.
+
+**The toolbox under these moves** — 47 trigger-indexed thinking moves (representation,
+structure, estimation, unsticking, rigor, and the compiler lens), a reach-when-stuck table,
+and barrier literacy for Collatz / RH / P-vs-NP — lives **on demand** in
+[`references/mathematical-moves.md`](references/mathematical-moves.md), its executable
+micro-examples in the sibling `mathematical-moves-verify.py`. Load it when the six moves above
+don't unstick you; keep it out of the hot path until then.
+
 ## Examples (Agent-tool dispatch)
 
 ```text
