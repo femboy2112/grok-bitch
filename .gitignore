@@ -3,3 +3,7 @@ __pycache__/
 .cache/
 *.egg-info/
 /tmp/
+
+# OpenCode adapter (managed)
+opencode/host/tiers.local.json
+node_modules/
