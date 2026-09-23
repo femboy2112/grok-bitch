@@ -5,56 +5,57 @@ Probes run **2026-09-23** against the installed contracts (`@opencode/plugin@2.0
 
 Evidence labels: **VERIFIED** = live probe on the current host passed · **OBSERVED** = seen once with a stated scope · **CONJECTURED** = supported, decisive probe missing · **UNVERIFIED** = probe not run · **BOUNDARY** = real host limitation.
 
-## 1. Host-attested verification (the merge blocker)
+## 1. Fresh-bound, host-attested verification (the merge blocker)
 
-The plugin never executes a shell and never accepts caller-supplied `exitCode`/`passed`.
-`workflow_verify({runId, verifyId})` resolves a **repo-owned** trusted command and certifies
-only from OpenCode's own tool-execution telemetry for a real `shell` run of it. Replay is
-blocked (one host execution certifies exactly one verification).
+The plugin never executes a shell and never accepts caller-supplied `command`/`exitCode`/
+`passed`. Verification is **two-stage and fresh-bound**:
 
-**Attested pass — VERIFIED** (background service, real `shell` tool, agent session):
+1. `workflow_verify_prepare({runId, verifyId})` opens a single-use **challenge**
+   (`{challengeId, command, createdAt, boundAt}`) from a **repo-owned** trusted command.
+2. The orchestrator runs that exact command via OpenCode's normal `shell` tool.
+3. `workflow_verify({runId, verifyId, challengeId})` certifies only from OpenCode's own
+   tool-execution telemetry (`ctx.tool.hook("execute.after")`) and only if
+   `attestation.at >= max(challenge.createdAt, run.lastChildAt)`. Challenge **and** attestation
+   are consumed on every valid attempt.
+
+**Why this is sufficient.** The challenge pins the evidence boundary to one workflow state:
+nothing that ran before the challenge, and nothing before the last child change, can certify
+the run; one-use consumption forbids replay; the evidence source is the host's own execution,
+so the caller only chooses *which* trusted verifier to request, never the evidence itself.
+
+### Hostile freshness matrix — all VERIFIED (cold `--standalone` host unless noted)
+
+| case | result |
+| --- | --- |
+| **A** stale pre-run execution | `status:"stale-attestation", attested:true, fresh:false` (attestationAt < challengeCreatedAt) |
+| **B** stale pre-child-change execution | `status:"stale-attestation"` (attestationAt < boundAt = last child completion) |
+| **C** fresh execution under challenge | `status:"verify-passed", attested:true, fresh:true, exitCode:0`; `finish → verdict:"verify-passed"` |
+| **D** replay (same challenge twice) | `status:"unknown-challenge"` |
+| **E** wrong `verifyId` | `status:"unknown-verify"` |
+| **F** wrong command cannot certify | `status:"no-attestation"` |
+| **G** wrong session (background service, 2 sessions) | `status:"wrong-session"` |
+| **H** terminal run cannot newly verify | `status:"terminal"` |
+
+Exact evidence (C and B):
 
 ```json
-{"ok":true,"status":"verify-passed","passed":true,"attested":true,"verifyId":"adapter-validate",
- "command":"python3 /home/leah/grok-bitch/scripts/opencode-validate.py","exitCode":0,
- "sessionID":"ses_f2f6b54d9ffedCu3AKeeCk8sZg","callID":"call_lcnd1wvt",
- "receipt":{"stdoutTail":"validate grok-bitch: PASS\n ... host version gate: tested == installed (2.0.14)\n"}}
+C: {"ok":true,"status":"verify-passed","passed":true,"attested":true,"fresh":true,
+    "verifyId":"adapter-validate","command":"python3 /home/leah/grok-bitch/scripts/opencode-validate.py",
+    "exitCode":0,"callID":"call_function_a6stlfdn4vml_1",
+    "receipt":{"challengeId":"vc_muer5u66_rhr01y","boundAt":1790207228670,"stdoutTail":"validate grok-bitch: PASS ..."}}
+  finish -> {"verdict":"verify-passed","ok":true}
+B: {"status":"stale-attestation","attested":true,"fresh":false,"exitCode":0,
+    "attestationAt":1790207295276,"challengeCreatedAt":1790207292756,"boundAt":1790207306756,
+    "error":"the host execution predates the verification challenge or the latest child change"}
 ```
 
-**Attested failure — VERIFIED** (temporary trusted verifier `always-fail` = `false`):
+### Telemetry mechanism (probed)
 
-```json
-{"status":"verify-failed","passed":false,"attested":true,"exitCode":1,"command":"false","callID":"call_l3rhzde4"}
-finish -> {"verdict":"verify-failed","ok":false}
-```
-
-**No-attestation ⇒ fails — VERIFIED** (verify called without running the command):
-
-```json
-{"ok":false,"status":"no-attestation","passed":false,"attested":false,
- "hint":"run this exact command via the host shell tool, then call workflow_verify again: ..."}
-```
-
-**Replay blocked — VERIFIED**: the second `workflow_verify` after one real run returned
-`no-attestation` (the attestation is consumed).
-
-**Unknown `verifyId` rejected — VERIFIED**: `{"status":"unknown-verify", ...}`.
-
-**Cold host (fresh `opencode run --standalone`): `finish -> verdict:"verify-passed"`** — VERIFIED.
-
-Fabricated input is impossible: the tool schema is `{runId, verifyId, childSessionID?}`,
-`additionalProperties:false`; `command`/`exitCode`/`passed` do not exist as inputs.
-
-### Verification telemetry mechanism (probed)
-
-- `ctx.tool.hook("execute.after", cb)` fires with
-  `{tool:"shell", sessionID, agent, id, input:{command}, status:"completed", result}` where
-  `result.output.exit` / `result.metadata.exit` are the real exit code.
-- Hooks fire for tool executions in **agent sessions** (both the background service and a
-  cold `--standalone` server). Harness/Code-Mode-owner tool executions are not observable —
-  the orchestrator must run the trusted command in **its own** session (as designed).
-- `ATTEST_REG` re-registers the hook on every `setup`; registration is idempotent per
-  execution.
+`ctx.tool.hook("execute.after", cb)` fires with
+`{tool:"shell", sessionID, agent, id, input:{command}, status:"completed", result}` where
+`result.output.exit` / `result.metadata.exit` is the real exit code. Hooks fire for tool
+executions in agent sessions (both the shared service and a cold `--standalone` server); the
+orchestrator must therefore run the trusted command in **its own** session (as designed).
 
 ## 2. Guard directory bookkeeping (previously-restored-but-unreported)
 
@@ -67,98 +68,52 @@ Live child (`project-zion:tank`) mutating a guarded path; snapshot + revert in t
 | nested protected file deleted | `guard-touch` | `["guardeddir/nested/a.txt"]` |
 | protected file replaced by directory | `guard-touch` | `["guardfile"]` |
 
-All four **VERIFIED**, exact original state restored. Unit regressions (adapter selftest,
-**82 assertions PASS**) additionally cover non-empty directory deletion, non-empty directory
-mode change, directory replaced by file, file replaced by directory, binary byte-for-byte
-restore, symlink retarget, and `..`/absolute/symlink-escape rejection.
+All four **VERIFIED**, exact original state restored. Adapter unit tests (**89 assertions
+PASS**) additionally cover non-empty directory deletion/mode, dir↔file replacement, binary
+byte-for-byte restore, symlink retarget, and `..`/absolute/symlink-escape rejection.
 
 ## 3. Four-plugin coexistence on a cold host
 
 Fresh `opencode run --standalone` server (all four plugins cold-loaded), one real job per
-namespace in the same process, correct agents and no collisions — **VERIFIED**:
+namespace in one process — **VERIFIED**:
 
 ```json
 RESULT: {"gb":"grok-bitch/morty","pz":["project-zion/oracle","project-zion/smith"],
          "pe":"project-euler/daniel","um":true}
 ```
 
-- grok-bitch → `grok-bitch/morty`
-- project-zion → `project-zion/oracle` + `project-zion/smith` (real `Promise.all` parallelism)
-- project-euler → `project-euler/daniel`
-- upper-management → real `uppermanagement packet ...` CLI, exit 0
+- grok-bitch → `grok-bitch/morty`; project-zion → `oracle` + `smith` (real `Promise.all`);
+  project-euler → `daniel`; upper-management → real `uppermanagement packet ...` CLI, exit 0.
 - `opencode run --standalone --agent <ns>/<name>` loads each generated agent;
   `--agent grok-bitch/does-not-exist` → `Agent not found` (negative control).
+- Runtime validators `--runtime` and `--live`: **PASS**; host gate `tested == installed (2.0.14)`.
 
-Runtime validators (`--runtime`) for all five repos: **PASS**.
-Host version gate: `tested == installed (2.0.14)`.
+## 4. Agent selection, Zion failure semantics, Euler phases (cold host)
 
-## 4. Cancellation, worktrees, agent selection (previous round, unchanged)
+**Agent selection = requested — VERIFIED**: `grok-bitch/morty`, `grok-bitch/rick`,
+`project-zion/neo`, `project-zion/smith`, `project-euler/euler`, `project-euler/dalembert`.
 
-- Workflow terminal state (OPEN → FINISHED | CANCELLED; terminal rejects new work; cancel
-  idempotent) — **VERIFIED**.
-- Unique worktrees for 3 parallel children, all removed; `worktree.remove force:true` —
-  **VERIFIED**.
-- Explicit `switchAgent` + assertion of the actual child agent id — **VERIFIED**.
-- Timeout interruption (`resume:false`) → `status:"interrupted"` — **VERIFIED**.
-  Full service-restart persistence of an OPEN run: **BOUNDARY** (a forced restart of the
-  shared background service was not performed here; reload-persistence was verified in the
-  previous round).
+**Zion — one child failure does not become consensus — VERIFIED**: parallel children gave
+`statuses:["done","schema-error"]`, the failing child's `output:null`, both preserved
+separately (never averaged).
 
-## 5. Agent selection, Zion failure semantics, Euler phases (cold host)
+**Euler phases + structured Ledger transfer — VERIFIED**: `daniel/goldbach/dalembert` with
+`Observed/Conjectured/Observed` (the Ledger *value* is testimony; agent/phase/validation mechanical).
 
-**Agent selection — VERIFIED.** `switchAgent` + assertion of the actual session agent:
+## 5. Not run / boundaries
 
-```json
-RESULT: [{"requested":"grok-bitch:morty","actual":"grok-bitch/morty"},
- {"requested":"grok-bitch:rick","actual":"grok-bitch/rick"},
- {"requested":"project-zion:neo","actual":"project-zion/neo"},
- {"requested":"project-zion:smith","actual":"project-zion/smith"},
- {"requested":"project-euler:euler","actual":"project-euler/euler"},
- {"requested":"project-euler:dalembert","actual":"project-euler/dalembert"}]
-```
+- UpperManagement provider-backed `audit`/`reconcile` (admission `codex|claude`, none
+  configured): **UNVERIFIED / explicit boundary**. `packet` path and provider admission VERIFIED.
+- Full restart of the shared background service: **BOUNDARY** — cold-start of a fresh
+  `--standalone` server loading all plugins IS verified; the shared service was not restarted
+  to avoid terminating the auditing session.
 
-**Zion: one child failure does not become consensus — VERIFIED.** Two parallel bearings,
-one valid, one told to emit no JSON under a strict schema:
-
-```json
-{"agents":["project-zion/oracle","project-zion/smith"],
- "statuses":["done","schema-error"],
- "schemaErrors":[null,"no parseable JSON found in report: ... \"nope\""],
- "outputs":[{"bearing":"A","finding":"fine"},null]}
-```
-
-The runtime preserves each child's separate status/output; it never averages a failure into
-a success. (Whether a downstream synthesis treats them as consensus is the caller's
-reasoning over this preserved evidence.)
-
-**Euler phases + structured Ledger transfer — VERIFIED.** Distinct Academy agents per phase,
-structured output validated per child:
-
-```json
-{"agents":["project-euler/daniel","project-euler/goldbach","project-euler/dalembert"],
- "ledgers":["Observed","Conjectured","Observed"]}
-```
-
-The Ledger *value* is model testimony; the agent selection, phases, and structured
-validation are mechanical. "Numerics alone ≠ Demonstrated" is enforced by the skill/runtime
-design, not claimed as a numerical probe here.
-
-## 6. Not run / boundaries
-
-- UpperManagement `audit`/`reconcile` against a **real provider** (admission is
-  `codex|claude`; none configured here): **UNVERIFIED**. The CLI admission check and
-  `packet` path are VERIFIED.
-- Full restart of the shared background service (to prove durable OPEN-run survival):
-  **BOUNDARY** — not performed to avoid terminating the auditing session; cold-start of a
-  fresh `--standalone` server loading all plugins IS verified.
-- Worktree mixed outcomes (success/fail/interrupt with cleanup) and 3-parallel worktree
-  uniqueness: VERIFIED in the previous round, not re-run here.
-
-## 7. Reproduce
-
+## 6. Reproduce
 
 ```sh
 bash scripts/opencode-install.sh
-python3 scripts/opencode-validate.py --runtime
-bash opencode/tests/live-matrix.sh          # cold-host attestation + coexistence
+python3 scripts/opencode-validate.py            # static checks
+python3 scripts/opencode-validate.py --runtime  # + live host registry probes
+python3 scripts/opencode-validate.py --live     # + a real Code Mode round-trip
+bash opencode/tests/live-matrix.sh              # cold-host fresh-verify + coexistence matrix
 ```
