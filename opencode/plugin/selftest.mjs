@@ -5,7 +5,7 @@ import {
   parseFrontmatter, translateAgent, translateSkill, renderAgentFile,
   validateSchema, assertSupportedSchema, extractStructured, expandArguments,
   tokenizeArgs, parseOutcomeClaim, resolveTierModel, guardSnapshot, guardCheckAndRevert,
-  resolveConfined, SchemaError,
+  resolveConfined, SchemaError, attestationIsFresh, trustedVerifies,
 } from "./runtime.ts"
 import { writeFileSync, mkdtempSync, readFileSync, existsSync, symlinkSync, mkdirSync, unlinkSync, chmodSync, statSync, readlinkSync, rmSync, rmdirSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -108,6 +108,19 @@ ok("claim debts parsed", claim.openDebts === 2)
 ok("alias resolves", resolveTierModel({ tiers: { opus: "p/o" }, agentNamespace: "x" }, "opus") === "p/o")
 ok("role resolves", resolveTierModel({ tiers: { "reasoning-heavy": "p/r" }, agentNamespace: "x" }, "opus") === "p/r")
 ok("unset inherits", resolveTierModel({ tiers: {}, agentNamespace: "x" }, "opus") === undefined)
+
+// --- trusted verifiers resolve with {root} substitution ---
+const tv = trustedVerifies({ id: "x", agentNamespace: "x", cage: { verifies: { a: "python3 {root}/s.py", b: "true" } } }, "/repo")
+ok("verify {root} substituted", tv.a === "python3 /repo/s.py")
+ok("verify plain kept", tv.b === "true")
+
+// --- freshness predicate (fresh-binding of verification attestations) ---
+const T0 = 1000, T1 = 2000, T2 = 3000
+ok("fresh: attestation after challenge and child", attestationIsFresh(T2, T1, T1) === true)
+ok("stale: attestation before challenge (pre-run execution)", attestationIsFresh(T0, T1, T1) === false)
+ok("stale: attestation after challenge but before last child change", attestationIsFresh(T1, T0, T2) === false)
+ok("fresh: exact boundary is allowed", attestationIsFresh(T1, T1, T1) === true)
+ok("stale: non-finite attestation time refused", attestationIsFresh(NaN, T0, T0) === false)
 
 // --- guard snapshot/revert: byte-exact, recursive, confined ---
 const dir = mkdtempSync(join(tmpdir(), "guard-"))

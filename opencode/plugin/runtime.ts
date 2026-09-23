@@ -520,11 +520,17 @@ export interface VerifyReceipt {
   runId: string
   childSessionID?: string
   verifyId?: string
+  /** the single-use challenge this receipt was produced under (explicit evidence boundary). */
+  challengeId?: string
   command: string
   exitCode: number | null
   passed: boolean
   /** true only when the receipt came from host-attested telemetry (never caller assertion). */
   attested: boolean
+  /** true only when the attested execution happened at/after the challenge and the last child completion. */
+  fresh?: boolean
+  /** lower bound the attestation had to satisfy: max(challenge.createdAt, latest child completion). */
+  boundAt?: number
   stdoutTail?: string
   stderrTail?: string
   sessionID?: string
@@ -544,6 +550,25 @@ interface Attestation {
   at: number
 }
 
+/**
+ * A single-use verification challenge: stage 1 of 2. It fixes the evidence boundary — an
+ * attestation may certify the run only if it happened at/after `createdAt` and at/after
+ * `boundAt` (the latest relevant child completion, and never before the run existed).
+ */
+export interface VerifyChallenge {
+  runId: string
+  verifyId: string
+  command: string
+  callerSession?: string
+  createdAt: number
+  boundAt: number
+}
+
+/** Pure freshness predicate (unit-tested): the execution must postdate the challenge and the last child. */
+export function attestationIsFresh(attAt: number, challengeCreatedAt: number, boundAt: number): boolean {
+  return Number.isFinite(attAt) && attAt >= challengeCreatedAt && attAt >= boundAt
+}
+
 /** Live telemetry hook registration per plugin (re-registered on every setup, prior disposed). */
 const ATTEST_REG = new Map<string, { dispose?: () => any }>()
 
@@ -558,6 +583,14 @@ export function trustedVerifies(manifest: HostManifest, repoRoot: string): Recor
 
 function commandKey(sessionID: string, command: string): string {
   return `verify-attest:${sessionID}:${createHash("sha256").update(command).digest("hex").slice(0, 24)}`
+}
+
+function challengeKey(runId: string, challengeId: string): string {
+  return `verify-challenge:${runId}:${challengeId}`
+}
+
+function newChallengeId(): string {
+  return `vc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
 function firstNumber(xs: any[]): number | undefined {
@@ -780,6 +813,8 @@ interface RunMeta {
   logs: Array<{ message: string; at: number }>
   createdAt: number; status: "open" | "finished" | "cancelled"
   childSeq?: number
+  /** completion time of the most recent workflow child — a freshness lower bound for verification. */
+  lastChildAt?: number
   verify?: { passed: boolean; command: string; at: number } | null
   verifies?: VerifyReceipt[]
 }
@@ -802,6 +837,10 @@ async function registerWorkflow(
     const list = ((await ctx.storage.get(`wf:receipts:${runId}`).catch(() => undefined)) as any[]) ?? []
     list.push(r)
     await ctx.storage.set(`wf:receipts:${runId}`, list as any)
+  }
+  const markChildCompleted = async (runId: string) => {
+    const r = await getRun(runId)
+    if (r) { r.lastChildAt = Date.now(); await putRun(r) }
   }
   const registerLive = (runId: string, sid: string) => {
     if (!live.has(runId)) live.set(runId, new Set())
@@ -908,29 +947,67 @@ async function registerWorkflow(
       await putRun(run)
       await ctx.storage.set(`wf:value:${input.runId}`, input.value ?? null as any).catch(() => {})
       const verifies = run.verifies ?? []
-      const allPassed = verifies.length ? verifies.every((v) => v.passed && v.attested) : true
+      // certification requires a fresh, host-attested pass — never testimony, never stale evidence
+      const allPassed = verifies.length ? verifies.every((v) => v.passed && v.attested && v.fresh !== false) : true
       const verdict = verifies.length ? (allPassed ? "verify-passed" : "verify-failed") : "finished"
       return { content: JSON.stringify({ ok: verifies.length ? allPassed : true, runStatus: run.status, verdict, verify: run.verify ?? null, verifies: verifies.length ? verifies : null }) }
     },
   })
 
-  // verify — TRUSTED, host-attested verification. The plugin never executes the command and never
-  // accepts a caller-supplied exit code. It reads OpenCode's own tool-execution telemetry for a real
-  // shell run of the repo-owned trusted command and certifies from that.
+  // verify_prepare — stage 1 of 2: open a single-use verification challenge (explicit evidence boundary).
+  tools.push({
+    name: "workflow_verify_prepare",
+    description:
+      "Open a verification CHALLENGE for a run (stage 1 of 2). `verifyId` resolves to a repo-owned trusted command " +
+      "(never model-supplied). Returns a single-use challengeId and the exact command. Then run that exact command " +
+      "yourself via the host's normal `shell` tool in THIS session, then call workflow_verify with the challengeId. " +
+      "The challenge fixes the freshness boundary: an attestation may certify the run only if it happened at/after " +
+      "the challenge AND at/after the latest child completion.",
+    input: {
+      type: "object",
+      properties: { runId: { type: "string" }, verifyId: { type: "string" }, childSessionID: { type: "string" } },
+      required: ["runId", "verifyId"], additionalProperties: false,
+    },
+    execute: async (input: any, tc: any) => {
+      const run = await getRun(input.runId)
+      if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
+      if (run.status !== "open") return terminalError(run)
+      const trustedNow = trustedVerifies(manifest, repoRoot)
+      const command = trustedNow[String(input.verifyId)]
+      if (!command) return { content: JSON.stringify({ ok: false, status: "unknown-verify", verifyId: input.verifyId, error: `unknown verifyId (this repo defines: ${Object.keys(trustedNow).join(", ") || "none"})` }) }
+      const challengeId = newChallengeId()
+      const challenge: VerifyChallenge = {
+        runId: input.runId, verifyId: input.verifyId, command,
+        callerSession: typeof tc?.sessionID === "string" ? tc.sessionID : undefined,
+        createdAt: Date.now(),
+        boundAt: Math.max(run.createdAt, run.lastChildAt ?? 0),
+      }
+      await ctx.storage.set(challengeKey(input.runId, challengeId), challenge as any)
+      return { content: JSON.stringify({
+        ok: true, status: "prepared", runId: input.runId, verifyId: input.verifyId, challengeId,
+        command, createdAt: challenge.createdAt, boundAt: challenge.boundAt,
+        next: "run this exact command via the host shell tool, then call workflow_verify({runId, verifyId, challengeId})",
+      }) }
+    },
+  })
+
+  // verify — stage 2 of 2: consume a FRESH, host-attested execution under the challenge.
+  // The plugin never executes the command and never accepts caller-supplied exit codes; it reads
+  // OpenCode's own telemetry for a real shell run and refuses anything not fresh-bound to the challenge.
   tools.push({
     name: "workflow_verify",
     description:
-      "Verify a run against a TRUSTED verifier. `verifyId` is looked up in the repo manifest (never model-supplied). " +
-      "The plugin does not execute the command and does not accept caller-supplied exit codes: run the trusted " +
-      "command yourself via the host's normal `shell` tool (OpenCode's shell permission surface) in THIS session, " +
-      "then call workflow_verify with the same verifyId. The runtime reads the host's own telemetry for that " +
-      "execution and certifies from it. No attested execution => the verification fails (it can never pass by assertion).",
+      "Verify a run (stage 2 of 2) against a challenge from workflow_verify_prepare. The plugin does not execute the " +
+      "command and does not accept caller-supplied exit codes: it certifies from OpenCode's own telemetry for a real " +
+      "shell run of the repo-owned trusted command. The execution must postdate the challenge AND the latest child " +
+      "completion (no stale evidence); the challenge and the attestation are both consumed (no replay); the caller " +
+      "session must match the challenge. No fresh attested execution => the verification fails.",
     input: {
       type: "object",
       properties: {
-        runId: { type: "string" }, childSessionID: { type: "string" }, verifyId: { type: "string" },
+        runId: { type: "string" }, verifyId: { type: "string" }, challengeId: { type: "string" }, childSessionID: { type: "string" },
       },
-      required: ["runId", "verifyId"], additionalProperties: false,
+      required: ["runId", "verifyId", "challengeId"], additionalProperties: false,
     },
     execute: async (input: any, tc: any) => {
       const run = await getRun(input.runId)
@@ -942,39 +1019,73 @@ async function registerWorkflow(
         return { content: JSON.stringify({ ok: false, status: "unknown-verify", passed: false, attested: false, verifyId: input.verifyId, error: `unknown verifyId (this repo defines: ${Object.keys(trustedNow).join(", ") || "none"})` }) }
       }
       const callerSession = typeof tc?.sessionID === "string" ? tc.sessionID : undefined
+      const challenge = (await ctx.storage.get(challengeKey(input.runId, String(input.challengeId))).catch(() => undefined)) as VerifyChallenge | undefined
+      if (!challenge || challenge.runId !== input.runId || challenge.verifyId !== input.verifyId) {
+        return { content: JSON.stringify({ ok: false, status: "unknown-challenge", passed: false, attested: false, verifyId: input.verifyId, challengeId: input.challengeId, error: "no such challenge for this run/verifyId (call workflow_verify_prepare first)" }) }
+      }
+      if (challenge.command !== command) {
+        await ctx.storage.remove(challengeKey(input.runId, String(input.challengeId))).catch(() => {})
+        return { content: JSON.stringify({ ok: false, status: "challenge-mismatch", passed: false, attested: false, verifyId: input.verifyId, error: "the challenge command no longer matches the manifest" }) }
+      }
+      if (challenge.callerSession && callerSession !== challenge.callerSession) {
+        await ctx.storage.remove(challengeKey(input.runId, String(input.challengeId))).catch(() => {})
+        return { content: JSON.stringify({ ok: false, status: "wrong-session", passed: false, attested: false, verifyId: input.verifyId, error: "a challenge must be consumed from the session that prepared it" }) }
+      }
+
+      const boundAt = Math.max(challenge.createdAt, run.lastChildAt ?? 0, challenge.boundAt)
       const att = callerSession
         ? (await ctx.storage.get(commandKey(callerSession, command)).catch(() => undefined)) as Attestation | undefined
         : undefined
-      if (!att || typeof att.exitCode !== "number") {
-        const receipt: VerifyReceipt = {
-          runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId,
-          command, exitCode: att?.exitCode ?? null, passed: false, attested: false,
-          sessionID: callerSession, callID: att?.callID, at: Date.now(),
-        }
+
+      // The challenge is single-use: consume it on every valid attempt (pass, fail, stale, or absent).
+      await ctx.storage.remove(challengeKey(input.runId, String(input.challengeId))).catch(() => {})
+      const record = async (receipt: VerifyReceipt) => {
         // a verification state is per verifyId: the latest attempt supersedes an earlier one
         run.verifies = [...(run.verifies ?? []).filter((v) => v.verifyId !== input.verifyId), receipt]
-        run.verify = { passed: false, command, at: receipt.at }
+        run.verify = { passed: receipt.passed, command, at: receipt.at }
         await putRun(run)
         await ctx.storage.set(`wf:verify:${input.runId}`, receipt as any).catch(() => {})
+      }
+
+      if (!att || typeof att.exitCode !== "number") {
+        const receipt: VerifyReceipt = {
+          runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId, challengeId: input.challengeId,
+          command, exitCode: null, passed: false, attested: false, fresh: false, boundAt, sessionID: callerSession, at: Date.now(),
+        }
+        await record(receipt)
         return { content: JSON.stringify({
-          ok: false, status: "no-attestation", passed: false, attested: false, verifyId: input.verifyId, command, callerSession,
-          hint: `run this exact command via the host shell tool, then call workflow_verify again: ${command}`, receipt,
+          ok: false, status: "no-attestation", passed: false, attested: false, fresh: false, verifyId: input.verifyId, command,
+          hint: `run this exact command via the host shell tool AFTER workflow_verify_prepare, then call workflow_verify: ${command}`, receipt,
         }) }
       }
-      // consume the attestation: one real host execution certifies exactly one verification (no replay)
+
+      if (!attestationIsFresh(att.at, challenge.createdAt, boundAt)) {
+        // a real execution, but it predates the challenge / latest child change: refuse stale evidence
+        await ctx.storage.remove(commandKey(callerSession!, command)).catch(() => {})
+        const receipt: VerifyReceipt = {
+          runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId, challengeId: input.challengeId,
+          command, exitCode: att.exitCode, passed: false, attested: true, fresh: false, boundAt,
+          sessionID: att.sessionID, callID: att.callID, at: Date.now(),
+        }
+        await record(receipt)
+        return { content: JSON.stringify({
+          ok: false, status: "stale-attestation", passed: false, attested: true, fresh: false, verifyId: input.verifyId,
+          command, exitCode: att.exitCode, attestationAt: att.at, challengeCreatedAt: challenge.createdAt, boundAt,
+          error: "the host execution predates the verification challenge or the latest child change", receipt,
+        }) }
+      }
+
+      // fresh + attested: consume the execution (one real host run certifies exactly one verification)
       await ctx.storage.remove(commandKey(callerSession!, command)).catch(() => {})
       const passed = att.exitCode === 0
       const receipt: VerifyReceipt = {
-        runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId,
-        command, exitCode: att.exitCode, passed, attested: true,
+        runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId, challengeId: input.challengeId,
+        command, exitCode: att.exitCode, passed, attested: true, fresh: true, boundAt,
         stdoutTail: att.stdoutTail, sessionID: att.sessionID, callID: att.callID, at: Date.now(),
       }
-      run.verifies = [...(run.verifies ?? []).filter((v) => v.verifyId !== input.verifyId), receipt]
-      run.verify = { passed, command, at: receipt.at }
-      await putRun(run)
-      await ctx.storage.set(`wf:verify:${input.runId}`, receipt as any).catch(() => {})
+      await record(receipt)
       return { content: JSON.stringify({
-        ok: true, status: passed ? "verify-passed" : "verify-failed", passed, attested: true,
+        ok: true, status: passed ? "verify-passed" : "verify-failed", passed, attested: true, fresh: true,
         verifyId: input.verifyId, command, exitCode: att.exitCode, sessionID: att.sessionID, callID: att.callID, receipt,
       }) }
     },
@@ -1125,13 +1236,14 @@ async function registerWorkflow(
         let guard: any
         if (snap) { guard = guardCheckAndRevert(snap); receipt.guard = guard }
 
-        // verify HINT only — the plugin never executes it. The orchestrator runs the trusted command via the host shell tool,
-        // then calls workflow_verify (which certifies from the host's own telemetry of that execution).
+        // verify HINT only — the plugin never executes it. The orchestrator calls workflow_verify_prepare,
+        // runs the trusted command via the host shell tool, then calls workflow_verify (which certifies from
+        // the host's own telemetry, fresh-bound to the challenge).
         let verifyHint: any = null
         if (input.verifyId) {
           const cmd = trustedVerifies(manifest, repoRoot)[String(input.verifyId)]
           verifyHint = cmd
-            ? { id: input.verifyId, command: cmd, executed: false, next: "run via the host shell tool, then call workflow_verify({runId, verifyId})" }
+            ? { id: input.verifyId, command: cmd, executed: false, next: "call workflow_verify_prepare({runId, verifyId}), run this exact command via the host shell tool, then workflow_verify({runId, verifyId, challengeId})" }
             : { id: input.verifyId, error: "unknown verifyId" }
         }
 
@@ -1166,10 +1278,11 @@ async function registerWorkflow(
           report: text, claim, guard: guard ?? null, verifyHint,
           output: output ?? null, worktree: worktreeDir ?? null, model: receipt.model ?? null, modelNote: modelNote ?? null,
           elapsedMs: Date.now() - startedAt,
-          testimony: "The agent's report and claim are testimony; status and guard are mechanical; verification is host-attested separately via workflow_verify.",
+          testimony: "The agent's report and claim are testimony; status and guard are mechanical observations; verification is a fresh host-attested execution recorded separately via workflow_verify_prepare + workflow_verify.",
         }
         receipt.outcome = status; receipt.elapsedMs = result.elapsedMs
         await addReceipt(run.runId, receipt)
+        await markChildCompleted(run.runId)
         return { content: JSON.stringify(result) }
       } catch (e: any) {
         if (sessionID) { try { await ctx.session.interrupt({ sessionID, resume: false }) } catch { /* best effort */ } }
@@ -1179,6 +1292,7 @@ async function registerWorkflow(
           outcome: "executor-error", error: e?.message ?? String(e), elapsedMs: Date.now() - startedAt,
         }
         try { await addReceipt(run.runId, receipt) } catch { /* best effort */ }
+        await markChildCompleted(run.runId).catch(() => {})
         return { content: JSON.stringify({ ok: false, status: "executor-error", error: e?.message ?? String(e), childSessionID: sessionID ?? null }) }
       } finally {
         tc?.signal?.removeEventListener?.("abort", onAbort)
