@@ -3,16 +3,7 @@ description: "Morty — the twitchy, untrusted grunt. Hand him ONE bounded, mech
 mode: all
 color: "#f5d90a"
 permissions:
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "shell"

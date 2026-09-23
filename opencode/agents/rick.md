@@ -3,16 +3,7 @@ description: "Rick — the 300-IQ handler that orchestrates Morty (a bounded, un
 mode: all
 color: "#00a2c7"
 permissions:
-  - action: "edit"
-    resource: "*"
-    effect: "deny"
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "shell"

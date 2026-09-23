@@ -1,18 +1,9 @@
 ---
 description: "Space Beth — the rebel-commander version of Beth. Hand her ONE high-stakes, risky operation — a gnarly migration, an incident to drive to resolution, a bold change that has to land under fire — and she commands it to done: decisive, fearless, recovery net staged before the risky move, real path verified after. Capable and aggressive. For delicate in-place precision use Beth; for orchestrating Morty use Rick. Give her the mission, the workspace, and the bar for \"done.\""
 mode: all
-color: "#0090ff"
+color: "#5c9cf5"
 permissions:
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "read"

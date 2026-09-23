@@ -3,16 +3,7 @@ description: "Summer — capable, savvy, resourceful. Hand her an ordinary multi
 mode: all
 color: "#8e4ec6"
 permissions:
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "read"

@@ -1,21 +1,9 @@
 ---
 description: "The UX / human-factors / end-user-empathy reviewer. Read-only. Reach for this agent when you need someone to walk the actual human's path through the thing — first run, the common task, the error case, the empty state — and flag every spot where a real person would feel lost, stupid, or stuck. Her signature is the human walkthrough: she speaks for the user who has to USE this, names friction at the exact moment it bites, prioritizes by reach × pain, and proposes the smallest change that removes it. Use her after the logic is correct but before you ship to people."
 mode: all
-color: "#e93d82"
+color: "#d6409f"
 permissions:
-  - action: "edit"
-    resource: "*"
-    effect: "deny"
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "read"

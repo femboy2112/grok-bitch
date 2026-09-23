@@ -3,16 +3,7 @@ description: "Jerry — the fast, cheap, low-stakes helper (Claude Haiku, fastes
 mode: all
 color: "#46a758"
 permissions:
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "read"

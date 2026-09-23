@@ -1,62 +1,76 @@
 # OpenCode host translation
 
-This repository is a **dual-host** plugin. Its `skills/`, `agents/`, `commands/`,
-`scripts/`, and research content are canonical and shared. `opencode/` holds the
-thin OpenCode adapter; no canonical content is rewritten for OpenCode.
+This repository is a **dual-host** plugin. `skills/`, `agents/`, `commands/`,
+`scripts/`, and research content are canonical and shared. `opencode/` holds a thin
+adapter; no canonical content is rewritten for OpenCode.
 
-The adapter (`opencode/host/runtime.ts`) is vendored verbatim from a single
-canonical source and pinned in `opencode/host/RUNTIME.sha256`. Every plugin in the
-family uses the same adapter; per-host behavior is data in
-`opencode/host/manifest.json`. This is a deliberate tradeoff: a hash-pinned,
-validator-checked copy in each self-contained repo instead of a new public
-dependency or five drifting forks.
+## Architecture
 
-## Semantics
+```
+canonical plugin content  +  opencode/plugin/manifest.json
+        |
+        +-- Claude host   (.claude-plugin, unchanged)
+        |
+        +-- OpenCode host (opencode/plugin/, thin)
+```
+
+`opencode/plugin/runtime.ts` is vendored verbatim from a single canonical source and
+pinned by `opencode/plugin/RUNTIME.sha256`. `index.ts` is a two-line file that imports
+`./runtime.ts` and calls `defineHostPlugin(manifest)` — so the hash pins the code that
+actually loads, with no duplicated implementation. The installer writes a **loader**
+`~/.config/opencode/plugins/<id>.ts` that re-exports `<repo>/opencode/plugin/index.ts`;
+because the target file is imported by absolute path, relative imports and
+`import.meta.dir` resolve inside the repository.
+
+## Runtime contract (probed against the installed OpenCode 2.0.14)
 
 | Claude Code concept | OpenCode realization | Difference that matters |
 | --- | --- | --- |
-| `skills/<x>/SKILL.md` | registered via `ctx.skill.transform` with `path` at the real `SKILL.md` | supporting files resolve as before |
-| `commands/<x>.md` | registered via `ctx.command.transform` | `$ARGUMENTS`/`$1..$n` expansion reimplemented identically; unknown frontmatter ignored |
-| `agents/<x>.md` | generated native `opencode/agents/<x>.md` (committed, deterministic) | body -> `system`, `description`, `color`, `steps` preserved; `tools` -> `permissions` |
-| `model: opus/sonnet/haiku` | resolved at runtime from `opencode/host/tiers.local.json` > env `OPENCODE_MODEL_*` > manifest, applied to the generated agent | unset tier => inherit invoking model (honest fallback) |
-| `effort: high` | model `#variant` when the tier maps to a variant | falls back to the base model if the variant is rejected |
-| `tools: Bash, Edit, ...` | `permissions` rules | last-match-wins; unmapped tools are recorded, not granted |
-| `SubagentStop` hook | `session.execution.{succeeded,failed,interrupted}` event -> the hook script | advisory hooks never block, same as Claude |
-| `Workflow` tool: `agent/parallel/pipeline/phase/log`, `meta`, `schema` | `workflow.run` tool executing the same JS over OpenCode child sessions | see below |
-| `.mcp.json` | `ctx.mcp.transform` | local stdio + remote configs pass through |
-| `CLAUDE_PLUGIN_ROOT` | repo root from `realpath(import.meta.dir)` walking up to `.claude-plugin/plugin.json` | no absolute machine paths committed |
-| `CLAUDE_PLUGIN_DATA` | OpenCode plugin `ctx.storage` | durable JSON in the plugin's own scope |
+| `skills/<x>/SKILL.md` | `ctx.skill.transform` → `SkillEditor.add({ id, name, description, path, content })` | the field is **`path`** (verified against the installed `Skill.Info` schema); supporting files resolve via that path |
+| `commands/<x>.md` | `ctx.command.transform` → `CommandEditor.add({ name, description, execute })` | registered as **`<plugin-id>/<x>`** to avoid collisions; `$ARGUMENTS`/`$1..$n` expansion reimplemented identically |
+| `agents/<x>.md` | generated native `opencode/agents/<x>.md` (`AgentEditor` has **no `add`**) | body → system prompt; `tools:` → a **closed** permission allowlist |
+| `tools: Bash, Read, …` | `permissions` list built **deny-first** | `{action:"*",deny}` then explicit allows — an explicit canonical allowlist grants no extra capability class; `TodoWrite` is *not* mapped to `edit` |
+| `model: opus/sonnet/haiku` | canonical alias → role (`reasoning-heavy`/`directed`/`cheap`) → model, resolved at runtime | provider-agnostic; unset inherits the invoking model; a rejected `#variant` falls back to the base model and says so |
+| `SubagentStop` hook | `session.execution.{succeeded,failed,interrupted}` event → hook script | fires **only** for this plugin's own workflow children or its own agent namespace |
+| `Workflow` tool | plugin **workflow primitives** composed in OpenCode Code Mode | **no `new Function`**; model-authored code runs only in OpenCode's sandbox and reaches the world solely through permission-checked tools |
+| `CLAUDE_PLUGIN_ROOT` | `resolveRepoRoot(realpath(import.meta.dir))` | no absolute machine paths committed |
+| `CLAUDE_PLUGIN_DATA` | plugin-scoped `ctx.storage` | one storage scope per plugin; simultaneous installs cannot collide |
 
-## Workflow compatibility runtime
+## Workflow primitives (safe)
 
-`workflow.run({ script, args })` executes a canonical workflow script that uses:
+`workflow_start`, `workflow_agent`, `workflow_phase`, `workflow_log`,
+`workflow_status`, `workflow_cancel`, `workflow_finish` — registered under the
+plugin's own tool namespace. `workflow_agent` owns: fresh session creation, agent
+selection, model-tier application, structured-output validation, timeout, worktree
+isolation, guard snapshot/revert, the verify gate, receipts, and cleanup.
 
-- `agent(prompt, { label, agentType, phase, schema, model, timeoutMs, worktree })`
-  -> one fresh-context OpenCode child session; returns validated structured output
-  or text. `agentType: '<namespace>:<name>'` resolves to agent id `<namespace>/<name>`.
-  An unknown `agentType` throws.
-- `parallel([() => agent(...), ...])` -> concurrent children.
-- `pipeline(items, ...stages)` -> per-item ordered, data-dependent stages; items run concurrently.
-- `phase(title)` / `log(msg)` -> durable run state plus live tool progress.
+**Status contract:** `{ ok, status, report, claim, guard, verify, output, childSessionID }`.
+- `status` ∈ `done | handed-back | too-big | guard-touch | verify-failed | executor-error | interrupted | schema-error`.
+- terminal success/failure comes from the session's real `idle.outcome`, never an invented marker.
+- the child's `report`/`claim` is testimony; `guard`/`verify`/`status` are mechanical.
 
-It returns `{ runId, ok, value, phases, logs, receipts }` and persists the same
-under `run:<runId>:*` (`workflow.status({runId})` reads it).
+### Cage machinery (grok-bitch)
 
-Epistemic guarantees: a child's report is **testimony**, never verification;
-`schema` output is validated for real and a mismatch throws; a failed, timed-out,
-or interrupted child makes `ok:false` and is never reported as success; worktree
--isolated children are removed afterward and the removal result is recorded.
-
-### Reproduced
-
-`agent()`, `parallel()`, `pipeline()`, `phase()`, `log()`, structured schema
-validation, labels, timeouts, cancellation, nested workflows, worktree isolation,
-durable receipts, error propagation, fresh child context, child-completion hooks.
+`guardPaths` snapshot files before a step and revert any change after, yielding
+`guard-touch`. `verifyCommand`/`verifyExpectExit` run the acceptance command and yield
+`verify-failed` on a non-zero exit. The verify execution is trusted cage machinery,
+enabled only by this repo's committed manifest (`cage.verifyExec`), equivalent in trust
+to OpenCode's own shell tool.
 
 ### Not reproduced (boundaries)
 
-- Anthropic's hosted `/workflows` monitoring pane. OpenCode exposes child sessions
-  in its own session list and `workflow.status`; there is no single workflow pane.
-- `meta` is accepted as data but not used to pre-register phases.
-- Claude's `PushNotification` tool has no OpenCode equivalent; agents that request
-  it are recorded in the boundary report and the tool is not granted.
+- No hosted `/workflows` monitoring pane; inspect runs with `workflow_status`.
+- `meta`/declarative DAGs from Claude workflows are not pre-registered; Code Mode composes.
+- Claude's `PushNotification` has no OpenCode action and is recorded, not granted.
+- Programmatic sessions cannot set a native `parentID` (create drops it); ownership is our
+  own recorded metadata, and the Session API's `idle.outcome` is the completion contract.
+- Server plugins have no toast API; hook advisories are durable (`workflow_status`) — native
+  UI surfacing would require a separate TUI plugin.
+
+## grok-bitch is a Rick & Morty orchestrator
+
+Despite the historical name, **grok-bitch does not manage or call Grok/xAI**. The external
+Grok CLI/model harness was retired; Morty is the bounded, untrusted-by-default executor
+subagent, Rick is the handler/orchestrator, and the reusable contribution is the cage
+discipline. The OpenCode port preserves this: Rick orchestrates, Morty does bounded grunt
+work, the cage constrains the work, and the caller verifies. Grok is history, not runtime.

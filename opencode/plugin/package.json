@@ -1,9 +1,0 @@
-{
-  "name": "femboy2112-grok-bitch-opencode-plugin",
-  "version": "2.2.2",
-  "description": "OpenCode host adapter for grok-bitch",
-  "type": "module",
-  "exports": {
-    ".": "./index.ts"
-  }
-}

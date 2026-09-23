@@ -3,16 +3,7 @@ description: "Mr. Poopybutthole — the warm, cheerful friend of the family. Han
 mode: all
 color: "#46a758"
 permissions:
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "read"

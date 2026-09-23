@@ -3,16 +3,7 @@ description: "Beth — Rick's daughter, a surgeon. Hand her ONE delicate, precis
 mode: all
 color: "#f76b15"
 permissions:
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "subagent"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "read"

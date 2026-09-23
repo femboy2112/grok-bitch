@@ -1,6 +1,9 @@
 {
-  "opus": "anthropic/claude-opus-4-5",
-  "sonnet": "anthropic/claude-sonnet-4-5",
+  "_note": "Copy to tiers.local.json (gitignored) or export OPENCODE_MODEL_OPUS/SONNET/HAIKU. Tiers are provider-agnostic roles; unset tiers inherit the invoking model. No Anthropic subscription is required.",
+  "cheap": "anthropic/claude-haiku-4-5",
+  "directed": "anthropic/claude-sonnet-4-5",
   "haiku": "anthropic/claude-haiku-4-5",
-  "_note": "Copy to tiers.local.json (gitignored) or export OPENCODE_MODEL_OPUS/SONNET/HAIKU. Unset tiers inherit the invoking session model."
+  "opus": "anthropic/claude-opus-4-5",
+  "reasoning-heavy": "anthropic/claude-opus-4-5",
+  "sonnet": "anthropic/claude-sonnet-4-5"
 }

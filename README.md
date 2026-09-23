@@ -439,45 +439,36 @@ bill, which is what i use to build these. No pressure, ever.
 
 ## OpenCode support (dual-host)
 
-This plugin runs on **Claude Code and OpenCode**. The intellectual content —
-`skills/`, `agents/`, `commands/`, `scripts/` — is canonical and shared.
-`opencode/` holds a thin adapter; nothing was forked.
-
-Architecture: canonical content → one host-neutral `opencode/host/manifest.json`
-→ the shared, hash-pinned adapter `opencode/host/runtime.ts`. The adapter registers
-the canonical skills and commands, generates native OpenCode agents, implements a
-Workflow-compatibility runtime over OpenCode child sessions, and translates the
-`SubagentStop` hook onto child-session completion events.
+This plugin runs on **Claude Code and OpenCode**. Canonical content is shared; `opencode/`
+is a thin adapter and nothing is forked.
 
 ### Install
 
 ```sh
-bash scripts/opencode-install.sh     # symlinks this repo into ~/.config/opencode/
-bash scripts/opencode-validate.py    # static checks
-opencode service restart             # if the plugin does not appear
+bash scripts/opencode-install.sh
+python3 scripts/opencode-validate.py --runtime   # + live host registry probes
 ```
 
-Idempotent, no user-config clobbering; uninstall with
-`bash scripts/opencode-uninstall.sh`.
+### What you get
 
-### What you get in OpenCode
+- Commands registered as **`grok-bitch/<name>`** (namespace-safe when every plugin is installed).
+- Skills registered by id through the installed OpenCode `Skill.Info` contract (`path`).
+- Generated agents **`grok-bitch/<name>`** with a **closed, deny-first**
+  permission allowlist translated from the canonical `tools:` list — an explicitly
+  read-only agent cannot silently keep shell/edit/subagent capability.
+- **Workflow primitives** (`grok-bitch.workflow_start/agent/phase/log/status/cancel/finish`)
+  composed from OpenCode **Code Mode**. No model-authored string is ever evaluated by the
+  plugin process (`new Function`/`eval` removed); the model's JS runs only in Code Mode's
+  sandbox and reaches the world solely through permission-checked tools.
+- `SubagentStop` completion hooks translated to child-session events, firing **only** for
+  this plugin's own children or its own agent namespace.
 
-- Slash commands from this plugin's `commands/` (with `$ARGUMENTS` preserved).
-- Skills registered by id.
-- Generated agents `grok-bitch/<name>` usable as primary personas or subagents.
-- `workflow.run` / `workflow.status` tools: the canonical Workflow JS API
-  (`agent`, `parallel`, `pipeline`, `phase`, `log`, `schema`, `label`,
-  `agentType`, `worktree`, timeouts) over OpenCode child sessions.
-- `SubagentStop` label-lint translated onto child-completion events: the advisory is
-  recorded durably and surfaced as a synthetic message in the child session (never blocking).
+### Semantic boundaries
 
-### Semantic differences
-
-- Model tiers (`opus`/`sonnet`/`haiku`) resolve from
-  `opencode/host/tiers.local.json`, `OPENCODE_MODEL_*`, or the manifest; an unset
-  tier inherits the invoking model rather than inventing one.
-- There is no hosted `/workflows` pane. Inspect runs with `workflow.status({runId})`
-  and the child sessions in OpenCode's session list.
-- Claude's `PushNotification` has no OpenCode equivalent and is recorded, not granted.
-
-See `opencode/host/TRANSLATION.md` for the exact mapping and boundaries.
+- Model tiers (`opus`/`sonnet`/`haiku` → `reasoning-heavy`/`directed`/`cheap`) resolve from
+  `opencode/host/tiers.local.json`, `OPENCODE_MODEL_*`, or the manifest; unset tiers inherit
+  the invoking model. No Anthropic subscription is required.
+- Programmatic sessions cannot set a native `parentID` (OpenCode create drops it); ownership
+  is recorded metadata, and the session's `idle.outcome` is the completion contract.
+- No hosted `/workflows` pane — inspect runs with the `workflow_status` primitive.
+- Server plugins have no toast API; hook advisories are durable and read via `workflow_status`.

@@ -3,16 +3,7 @@ description: "Toxic Rick — the distilled, contemptuous, never-satisfied handle
 mode: all
 color: "#46a758"
 permissions:
-  - action: "edit"
-    resource: "*"
-    effect: "deny"
-  - action: "webfetch"
-    resource: "*"
-    effect: "deny"
-  - action: "websearch"
-    resource: "*"
-    effect: "deny"
-  - action: "skill"
+  - action: "*"
     resource: "*"
     effect: "deny"
   - action: "shell"
