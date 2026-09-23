@@ -39,34 +39,49 @@ because the target file is imported by absolute path, relative imports and
 ## Workflow primitives (safe)
 
 `workflow_start`, `workflow_agent`, `workflow_phase`, `workflow_log`,
-`workflow_status`, `workflow_verify`, `workflow_cancel`, `workflow_finish` —
+`workflow_status`, `workflow_verify_prepare`, `workflow_verify`, `workflow_cancel`,
+`workflow_finish` —
 registered under the plugin's own tool namespace. `workflow_agent` owns: fresh session
 creation, **explicit `switchAgent` + assertion of the actual agent**, model-tier
 application, structured-output validation, timeout, **unique** worktree isolation, guard
 snapshot/revert, receipts, and cleanup.
 
 **No server-side shell execution, and no self-certification.** `verifyId` resolves to a
-**repo-owned trusted command** (never model-supplied). The orchestrator runs that exact
-command with the host's normal `shell` tool (so OpenCode's shell permission surface
-applies); the runtime observes the execution through OpenCode's own tool-execution
-telemetry and `workflow_verify` certifies from that observation. The caller cannot supply
-`command`, `exitCode`, or `passed`: if no host-attested execution of the trusted command
-is observed in the calling session, verification **fails** (it can never pass by
-assertion). The plugin never `spawn`s a model-supplied command.
+**repo-owned trusted command** (never model-supplied). Verification is **two-stage and
+fresh-bound**:
+
+1. `workflow_verify_prepare({runId, verifyId})` opens a single-use **challenge** and returns
+   `{challengeId, command, createdAt, boundAt}`;
+2. the orchestrator runs that exact command with the host's normal `shell` tool
+   (OpenCode's shell permission surface) **in the same session**;
+3. `workflow_verify({runId, verifyId, challengeId})` certifies only from OpenCode's own
+   tool-execution telemetry for that run, and only if the execution happened **after the
+   challenge** and **after the latest child completion** (`attestation.at >= max(challenge.createdAt, run.lastChildAt)`).
+
+The caller cannot supply `command`, `exitCode`, or `passed`. Stale evidence (a real but
+pre-challenge/pre-child execution) is refused with `status:"stale-attestation"`; absent
+evidence with `status:"no-attestation"`; a mismatch with `unknown-challenge` /
+`challenge-mismatch` / `wrong-session`. Both the challenge and the attestation are consumed
+on every valid attempt, so a verification can never be replayed. **Why this is sufficient:**
+the challenge pins the evidence boundary to a single workflow state (nothing before the
+challenge or before the last child change can certify it), the one-use consumption forbids
+replay, and the telemetry source is the host's own execution — the caller only chooses
+*which* trusted verifier to request, never the evidence. The plugin never `spawn`s a
+model-supplied command.
 
 **State machine:** `OPEN → FINISHED | CANCELLED`, both terminal. After a terminal state,
-`workflow_agent`/`workflow_phase`/`workflow_log`/`workflow_finish` return explicit
-`{ok:false,status:"terminal"}` errors; `workflow_cancel` is idempotent only.
+`workflow_agent`/`workflow_phase`/`workflow_log`/`workflow_verify_prepare`/`workflow_verify`/`workflow_finish`
+return explicit `{ok:false,status:"terminal"}` errors; `workflow_cancel` is idempotent only.
 
 **Status contract:** `{ ok, status, report, claim, guard, verifyHint, output, childSessionID }`.
 - `status` ∈ `done | handed-back | too-big | guard-touch | guard-rejected | schema-error | executor-error | interrupted`.
 - terminal success/failure comes from the session's real `idle.outcome`, never an invented marker.
 
 **Evidence semantics (do not overclaim):**
-- the child's `report`/`claim` is **testimony**;
-- `status` and `guard` are **mechanical**;
-- a `verify` receipt is **mechanically attested host execution** (only when `attested:true`);
-- the final certification is the **caller/orchestrator reasoning** over independent evidence.
+- a child's `report`/`claim` is **testimony**;
+- `status` and `guard` are **mechanical observations**;
+- a `verify` receipt is a **fresh host-attested execution** — only when `attested:true AND fresh:true`;
+- the final verdict is the **caller/orchestrator reasoning** over that evidence.
 
 
 ### Cage machinery (grok-bitch)
@@ -79,10 +94,14 @@ assertion). The plugin never `spawn`s a model-supplied command.
 - **Workspace confinement.** Model-supplied `guardPaths` are resolved and rejected if they
   escape the workspace via `..`, an absolute path, or a symlink. Repo-owned
   `defaultProtected` paths are trusted.
-- **Verify is host-attested, never self-certified.** See above — the plugin executes no
-  verify shell, and a verification receipt is produced only from OpenCode's own telemetry
-  for a real execution of the repo-owned trusted command. An unattested verification is
-  reported as `status:"no-attestation"` and fails.
+- **Verify is host-attested and fresh-bound, never self-certified.** See above — the plugin
+  executes no verify shell, and a verification receipt is produced only from OpenCode's own
+  telemetry for a real execution of the repo-owned trusted command, bound to a single-use
+  challenge. Stale (`stale-attestation`) and absent (`no-attestation`) evidence fail; no
+  caller-supplied exit code is ever accepted.
+- **Directory/type/mode breaches are reported.** A protected directory that is deleted,
+  mode-changed, or replaced by a file (and a file replaced by a directory) is restored and
+  reported in `touchedPaths` — a mechanically restored breach never reports `clean`.
 
 ### Not reproduced (boundaries)
 
@@ -99,8 +118,16 @@ assertion). The plugin never `spawn`s a model-supplied command.
 
 ## grok-bitch is a Rick & Morty orchestrator
 
-Despite the historical name, **grok-bitch does not manage or call Grok/xAI**. The external
-Grok CLI/model harness was retired; Morty is the bounded, untrusted-by-default executor
-subagent, Rick is the handler/orchestrator, and the reusable contribution is the cage
-discipline. The OpenCode port preserves this: Rick orchestrates, Morty does bounded grunt
-work, the cage constrains the work, and the caller verifies. Grok is history, not runtime.
+**CURRENT —** grok-bitch is a **Rick & Morty multi-agent orchestrator with a deterministic
+cage/verification discipline**:
+
+- **Rick** — the handler/orchestrator: plans, delegates bounded steps, verifies independently.
+- **Morty** — the bounded, untrusted-by-default executor: does one well-specified step.
+- **cage** — bounded scope, protected-path guard + revert, a verification gate, never
+  self-certify, hand back if too large/ambiguous, no autonomous push/deploy/delete.
+
+**HISTORICAL —** the original external **Grok/xAI executor** that gave the project its name.
+It was retired; the name stayed, the runtime moved on.
+
+**NOT CURRENT —** grok-bitch does **not** manage or call Grok, does **not** integrate xAI,
+and does **not** wrap a Grok CLI or Grok runtime. There is no xAI dependency.

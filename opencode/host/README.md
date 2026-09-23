@@ -11,12 +11,14 @@ bash scripts/opencode-install.sh
 python3 scripts/opencode-validate.py            # static checks
 python3 scripts/opencode-validate.py --runtime  # + live host registry probes
 python3 scripts/opencode-validate.py --live     # + a real Code Mode round-trip
+bash opencode/tests/live-matrix.sh              # + cold-host live integration matrix
 ```
 
 Reload the host after install: `touch ~/.config/opencode/plugins/*.ts` (the loader hot-reloads),
 or restart the OpenCode background service. The plugin loader file is a thin re-export;
 generated agents are **copied** into `~/.config/opencode/agents/<ns>/` with model tiers
-injected at install time (re-run install to refresh tiers).
+injected at install time (re-run install to refresh tiers); the committed agent files stay
+provider-portable.
 
 ## Uninstall
 
@@ -30,7 +32,7 @@ bash scripts/opencode-uninstall.sh    # removes only the loader + installed agen
 - Skills registered from the canonical directories (no content copied).
 - Generated agents `grok-bitch/<name>` with closed, deny-first permissions.
 - Workflow primitives composed from OpenCode Code Mode (safe; no `new Function`), including
-  **host-attested** `workflow_verify` (no self-certification).
+  **fresh-bound host-attested** `workflow_verify_prepare` + `workflow_verify` (no self-certification).
 - `SubagentStop` completion hooks translated to child-session events (own children only).
 
 See `opencode/host/TRANSLATION.md` for the semantics table and boundaries.

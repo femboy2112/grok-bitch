@@ -446,8 +446,14 @@ is a thin adapter and nothing is forked.
 
 ```sh
 bash scripts/opencode-install.sh
-python3 scripts/opencode-validate.py --runtime   # + live host registry probes
+python3 scripts/opencode-validate.py            # static checks
+python3 scripts/opencode-validate.py --runtime  # + live host registry probes
+python3 scripts/opencode-validate.py --live     # + a real Code Mode round-trip
+bash opencode/tests/live-matrix.sh              # + cold-host live integration matrix
 ```
+
+The installer writes a managed **loader** `.ts`; generated agents are **copied** into
+`~/.config/opencode/agents/<ns>/` with model tiers injected at install time.
 
 ### What you get
 
@@ -456,13 +462,16 @@ python3 scripts/opencode-validate.py --runtime   # + live host registry probes
 - Generated agents **`grok-bitch/<name>`** with a **closed, deny-first**
   permission allowlist translated from the canonical `tools:` list — an explicitly
   read-only agent cannot silently keep shell/edit/subagent capability.
-- **Workflow primitives** (`grok-bitch.workflow_start/agent/phase/log/status/verify/cancel/finish`)
+- **Workflow primitives** (`grok-bitch.workflow_start/agent/phase/log/status/verify_prepare/verify/cancel/finish`)
   composed from OpenCode **Code Mode**. No model-authored string is ever evaluated by the
   plugin process (`new Function`/`eval` removed); the model's JS runs only in Code Mode's
   sandbox and reaches the world solely through permission-checked tools.
-- **Host-attested verification**: `workflow_verify`{runId, verifyId} resolves a repo-owned
-  trusted command and certifies only from OpenCode's own telemetry for a real `shell` run of
-  it. The caller cannot supply the command or the exit code; no attested execution ⇒ verify fails.
+- **Fresh-bound host-attested verification**: `workflow_verify_prepare({runId, verifyId})` opens a
+  single-use challenge; you run the repo-owned trusted command via the host `shell` tool; then
+  `workflow_verify({runId, verifyId, challengeId})` certifies only from OpenCode's own telemetry, only if
+  the execution postdates the challenge and the latest child completion. The caller cannot
+  supply the command or exit code; stale (`stale-attestation`) or absent (`no-attestation`)
+  evidence fails, and challenge+attestation are consumed (no replay).
 - `SubagentStop` completion hooks translated to child-session events, firing **only** for
   this plugin's own children or its own agent namespace.
 
@@ -470,7 +479,8 @@ python3 scripts/opencode-validate.py --runtime   # + live host registry probes
 
 - Model tiers (`opus`/`sonnet`/`haiku` → `reasoning-heavy`/`directed`/`cheap`) resolve from
   `opencode/host/tiers.local.json`, `OPENCODE_MODEL_*`, or the manifest; unset tiers inherit
-  the invoking model. No Anthropic subscription is required.
+  the invoking model. Tiers are applied to the **copied** installed agent files at install
+  time; the committed `opencode/agents/*.md` stay provider-portable (no `model:` line).
 - Programmatic sessions cannot set a native `parentID` (OpenCode create drops it); ownership
   is recorded metadata, and the session's `idle.outcome` is the completion contract.
 - No hosted `/workflows` pane — inspect runs with the `workflow_status` primitive.
