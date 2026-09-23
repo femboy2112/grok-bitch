@@ -81,12 +81,34 @@ def main():
             rel = py.group(1).replace("{root}/", "").lstrip("/")
             check((REPO / rel).exists(), f"hook script exists: {rel}")
 
-    # tier collapse warning
-    tiers = {k: v for k, v in (m.get("tiers") or {}).items() if not k.startswith("_")}
-    if tiers:
-        vals = {v for v in tiers.values()}
-        if len(vals) == 1 and len([k for k in tiers if k in ("opus", "sonnet", "haiku")]) > 1:
+    # canonical tier inventory + configured mapping report (tier parity is NOT claimed)
+    role_alias = {"opus": "reasoning-heavy", "sonnet": "directed", "haiku": "cheap"}
+    counts = {"opus": 0, "sonnet": 0, "haiku": 0, "inherit": 0}
+    for d in m.get("agentsDirs", []):
+        dd = REPO / d
+        if dd.is_dir():
+            for f in dd.glob("*.md"):
+                mm = re.search(r"^model:\s*(\S+)", f.read_text(errors="ignore"), re.M)
+                t = (mm.group(1).lower() if mm else "inherit")
+                counts[t if t in ("opus", "sonnet", "haiku") else "inherit"] += 1
+    configured = {k: v for k, v in (m.get("tiers") or {}).items() if not k.startswith("_")}
+    notes.append(f"canonical agent tiers: opus={counts['opus']} sonnet={counts['sonnet']} haiku={counts['haiku']} inherit={counts['inherit']}")
+    notes.append("configured OpenCode tier mappings: " + (json.dumps(configured) if configured else "none -> all inherit caller model"))
+    if configured:
+        vals = {v for v in configured.values()}
+        if len(vals) == 1 and len([k for k in configured if k in role_alias]) > 1:
             notes.append("WARN: distinct canonical tiers collapse to one model")
+
+    # host version gate
+    v = sh(["opencode", "--version"], timeout=60)
+    if v.returncode == 0:
+        installed = v.stdout.strip().split()[-1].lstrip("v")
+        if installed != m.get("hostTested"):
+            notes.append(f"WARN: host version drift — installed {installed}, tested {m.get('hostTested')}; host compatibility not established")
+        else:
+            notes.append(f"host version gate: tested == installed ({installed})")
+    else:
+        notes.append("WARN: could not read opencode --version")
 
     if a.runtime:
         def api(path):

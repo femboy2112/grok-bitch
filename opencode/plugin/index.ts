@@ -10,9 +10,9 @@ export default defineHostPlugin({
   "applyAgentTiers": true,
   "cage": {
     "defaultProtected": [],
-    "verifyExec": true
+    "verifies": {}
   },
-  "canonicalRuntimeSha": "ec7f0cc18814a1877889919448d205d60cbbaf8a5885fa08ca81455f070ca85e",
+  "canonicalRuntimeSha": "4001aa56ff09f74a645abf824d0ccaa2076d922d463d9fb90abda9665eabad15",
   "commandAliases": [
     "adventure-mode",
     "auto-rick",
@@ -41,6 +41,7 @@ export default defineHostPlugin({
       "timeoutMs": 10000
     }
   ],
+  "hostTested": "2.0.14",
   "id": "grok-bitch",
   "name": "grok-bitch",
   "registerCommands": true,

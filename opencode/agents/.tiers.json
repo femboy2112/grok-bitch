@@ -1,0 +1,90 @@
+{
+  "beth": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "birdperson": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "butter-robot": {
+    "model": "sonnet",
+    "effort": "low"
+  },
+  "citadel-rick": {
+    "model": "sonnet",
+    "effort": "high"
+  },
+  "council-rick": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "diane": {
+    "model": "sonnet",
+    "effort": "medium"
+  },
+  "dr-xenon-bloom": {
+    "model": "sonnet",
+    "effort": "high"
+  },
+  "evil-morty": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "jerry": {
+    "model": "haiku",
+    "effort": "low"
+  },
+  "jessica": {
+    "model": "sonnet",
+    "effort": "medium"
+  },
+  "morty": {
+    "model": "sonnet",
+    "effort": null
+  },
+  "mr-meeseeks": {
+    "model": "sonnet",
+    "effort": null
+  },
+  "mr-poopybutthole": {
+    "model": "sonnet",
+    "effort": "low"
+  },
+  "mr-president": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "noob-noob": {
+    "model": "haiku",
+    "effort": "low"
+  },
+  "pickle-rick": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "randotron": {
+    "model": "sonnet",
+    "effort": "medium"
+  },
+  "rick": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "snowball": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "space-beth": {
+    "model": "opus",
+    "effort": "high"
+  },
+  "summer": {
+    "model": "sonnet",
+    "effort": "medium"
+  },
+  "toxic-rick": {
+    "model": "opus",
+    "effort": "high"
+  }
+}

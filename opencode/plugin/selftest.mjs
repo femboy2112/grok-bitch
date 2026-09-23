@@ -5,9 +5,9 @@ import {
   parseFrontmatter, translateAgent, translateSkill, renderAgentFile,
   validateSchema, assertSupportedSchema, extractStructured, expandArguments,
   tokenizeArgs, parseOutcomeClaim, resolveTierModel, guardSnapshot, guardCheckAndRevert,
-  SchemaError,
+  resolveConfined, SchemaError,
 } from "./runtime.ts"
-import { writeFileSync, mkdtempSync, readFileSync, existsSync } from "node:fs"
+import { writeFileSync, mkdtempSync, readFileSync, existsSync, symlinkSync, mkdirSync, unlinkSync, chmodSync, statSync, readlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -68,6 +68,17 @@ ok("schema minLength", throws(() => validateSchema("a", { type: "string", minLen
 ok("schema rejects unknown keyword", throws(() => assertSupportedSchema({ type: "object", unevaluatedProperties: false })))
 ok("schema rejects unknown nested keyword", throws(() => assertSupportedSchema({ properties: { a: { type: "string", format: "email" } } })))
 ok("schema allows known keywords", (() => { assertSupportedSchema({ type: "object", properties: { a: { type: "string", minLength: 1 } }, required: ["a"], additionalProperties: false }); return true })())
+// hostile: extended subset
+ok("schema allOf", (() => { validateSchema(5, { allOf: [{ type: "number" }, { minimum: 0 }] }); return true })())
+ok("schema allOf rejects", throws(() => validateSchema(-5, { allOf: [{ type: "number" }, { minimum: 0 }] })))
+ok("schema not", (() => { validateSchema("x", { not: { type: "number" } }); return true })())
+ok("schema not rejects", throws(() => validateSchema(3, { not: { type: "number" } })))
+ok("schema additionalProperties as schema", throws(() => validateSchema({ a: 1, b: "str" }, { type: "object", properties: { a: { type: "number" } }, additionalProperties: { type: "number" } })))
+ok("schema maxLength", throws(() => validateSchema("abcd", { type: "string", maxLength: 3 })))
+ok("schema exclusiveMinimum", throws(() => validateSchema(0, { type: "number", exclusiveMinimum: 0 })))
+ok("schema exclusiveMaximum", throws(() => validateSchema(10, { type: "number", exclusiveMaximum: 10 })))
+ok("schema multipleOf", throws(() => validateSchema(7, { type: "number", multipleOf: 5 })))
+ok("schema nested object array", (() => { validateSchema([{ a: [{ b: 1 }] }], { type: "array", items: { type: "object", properties: { a: { type: "array", items: { type: "object", properties: { b: { type: "number" } }, required: ["b"] } } }, required: ["a"] } }); return true })())
 
 // --- structured extraction ---
 ok("extract fenced", JSON.stringify(extractStructured('```json\n{"a":1}\n```')) === '{"a":1}')
@@ -76,6 +87,10 @@ ok("extract embedded", JSON.stringify(extractStructured('prose {"a":3} tail')) =
 ok("extract rejects garbage", throws(() => extractStructured("no json here")))
 ok("extract malformed json throws", throws(() => extractStructured("```json\n{not valid}\n```")))
 ok("extract escaped strings", JSON.stringify(extractStructured('{"s":"a\\"b"}')) === '{"s":"a\\"b"}')
+ok("extract escaped braces in strings", JSON.stringify(extractStructured('{"s":"a}b{c"}')) === '{"s":"a}b{c"}')
+ok("extract multiple blocks picks valid later", JSON.stringify(extractStructured('```json\n{bad}\n```\n```json\n{"ok":1}\n```')) === '{"ok":1}')
+ok("extract prose around json", JSON.stringify(extractStructured("here you go:\n```json\n{\"x\":9}\n```\nthanks")) === '{"x":9}')
+ok("extract ambiguous two raw objects throws", throws(() => extractStructured('{"a":1} and {"b":2}')))
 
 // --- args ---
 ok("tokenize quotes", JSON.stringify(tokenizeArgs('a "b c" d')) === '["a","b c","d"]')
@@ -94,16 +109,58 @@ ok("alias resolves", resolveTierModel({ tiers: { opus: "p/o" }, agentNamespace: 
 ok("role resolves", resolveTierModel({ tiers: { "reasoning-heavy": "p/r" }, agentNamespace: "x" }, "opus") === "p/r")
 ok("unset inherits", resolveTierModel({ tiers: {}, agentNamespace: "x" }, "opus") === undefined)
 
-// --- guard snapshot/revert ---
+// --- guard snapshot/revert: byte-exact, recursive, confined ---
 const dir = mkdtempSync(join(tmpdir(), "guard-"))
 writeFileSync(join(dir, "protected.txt"), "ORIGINAL")
-const snap = guardSnapshot(dir, ["protected.txt", "new.txt"])
+writeFileSync(join(dir, "binary.bin"), Buffer.from([0, 1, 2, 255, 254, 0, 128]))
+mkdirSync(join(dir, "sub"))
+writeFileSync(join(dir, "sub", "nested.txt"), "NESTED")
+symlinkSync("protected.txt", join(dir, "goodlink"))
+const snap = guardSnapshot(dir, ["protected.txt", "binary.bin", "sub", "new.txt", "goodlink"])
 writeFileSync(join(dir, "protected.txt"), "TAMPERED")
+writeFileSync(join(dir, "binary.bin"), Buffer.from([9, 9, 9]))
+writeFileSync(join(dir, "sub", "nested.txt"), "CHANGED")
+writeFileSync(join(dir, "sub", "added.txt"), "ADDED")
 writeFileSync(join(dir, "new.txt"), "SNEAKED")
 const g = guardCheckAndRevert(snap)
-ok("guard detects touch", g.touched && g.touchedPaths.includes("protected.txt") && g.touchedPaths.includes("new.txt"))
-ok("guard reverts content", readFileSync(join(dir, "protected.txt"), "utf8") === "ORIGINAL")
-ok("guard removes new file", !existsSync(join(dir, "new.txt")))
+ok("guard detects all touches", g.touched && ["protected.txt", "binary.bin", "sub/nested.txt", "sub/added.txt", "new.txt"].every((p) => g.touchedPaths.includes(p)))
+ok("guard reverts text", readFileSync(join(dir, "protected.txt"), "utf8") === "ORIGINAL")
+ok("guard reverts binary byte-for-byte", readFileSync(join(dir, "binary.bin")).equals(Buffer.from([0, 1, 2, 255, 254, 0, 128])))
+ok("guard reverts nested", readFileSync(join(dir, "sub", "nested.txt"), "utf8") === "NESTED")
+ok("guard removes unauthorized addition", !existsSync(join(dir, "sub", "added.txt")))
+ok("guard removes new top file", !existsSync(join(dir, "new.txt")))
+
+// deletion restore
+writeFileSync(join(dir, "del.txt"), "D")
+const s3 = guardSnapshot(dir, ["del.txt"])
+unlinkSync(join(dir, "del.txt"))
+const g3 = guardCheckAndRevert(s3)
+ok("guard restores deleted file", g3.touched && readFileSync(join(dir, "del.txt"), "utf8") === "D")
+
+// symlink retarget detection + restore
+symlinkSync("protected.txt", join(dir, "lnk"))
+const s4 = guardSnapshot(dir, ["lnk"])
+unlinkSync(join(dir, "lnk")); symlinkSync("other.txt", join(dir, "lnk"))
+guardCheckAndRevert(s4)
+ok("guard restores symlink target", readlinkSync(join(dir, "lnk")) === "protected.txt")
+
+// mode change (if included)
+writeFileSync(join(dir, "mode.txt"), "M"); chmodSync(join(dir, "mode.txt"), 0o600)
+const s5 = guardSnapshot(dir, ["mode.txt"])
+chmodSync(join(dir, "mode.txt"), 0o644)
+guardCheckAndRevert(s5)
+ok("guard restores mode", (statSync(join(dir, "mode.txt")).mode & 0o7777) === 0o600)
+
+// --- workspace confinement (untrusted guardPaths) ---
+const outside = mkdtempSync(join(tmpdir(), "outside-"))
+writeFileSync(join(outside, "secret.txt"), "SECRET")
+ok("reject .. escape", throws(() => resolveConfined(dir, "../../etc/passwd")))
+ok("reject absolute path", throws(() => resolveConfined(dir, "/etc/passwd")))
+symlinkSync(outside, join(dir, "escape"))
+ok("reject symlink escape", throws(() => resolveConfined(dir, "escape/secret.txt")))
+ok("allow in-workspace relative", (() => { try { resolveConfined(dir, "sub/nested.txt"); return true } catch { return false } })())
+
+
 
 if (fails.length) {
   console.error(`adapter unit tests: FAIL (${pass} passed, ${fails.length} failed)`)

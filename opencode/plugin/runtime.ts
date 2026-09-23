@@ -33,12 +33,16 @@
  * The adapter never connects to Grok or xAI.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
-import { join, dirname, basename, isAbsolute, relative } from "node:path"
+import {
+  existsSync, readFileSync, readdirSync, statSync, mkdirSync, writeFileSync, rmSync,
+  lstatSync, realpathSync, readlinkSync, chmodSync, symlinkSync,
+} from "node:fs"
+import { join, dirname, basename, isAbsolute, relative, resolve } from "node:path"
 import { spawn } from "node:child_process"
 
 export const RUNTIME_VERSION = "2.0.0"
 export const RUNTIME_API = "opencode-2.0.14"
+export const HOST_TESTED_VERSION = "2.0.14"
 
 // --------------------------- manifest shape --------------------------------
 
@@ -63,8 +67,8 @@ export interface HostManifest {
   commandAliases?: string[]
   /** Register the safe workflow primitives. Default false. */
   workflow?: boolean
-  /** Cage machinery (grok-bitch). verifyExec must be enabled by the repo-committed manifest. */
-  cage?: { verifyExec?: boolean; defaultProtected?: string[] }
+  /** Cage machinery (grok-bitch). verifyExec is intentionally absent: the plugin never executes verify shell. */
+  cage?: { defaultProtected?: string[]; verifies?: Record<string, string> }
   /** Completion hooks (Claude SubagentStop analogue). */
   hooks?: HostHookDefinition[]
   /** Text appended to every translated command body. */
@@ -402,46 +406,111 @@ function mergeLocalTiers(repoRoot: string, manifest: HostManifest): void {
 }
 
 // ------------------------------ cage machinery -----------------------------
+// Byte-exact, recursive, workspace-confined. No UTF-8 round-trips. No shell exec.
 
-export interface GuardSnapshot { root: string; files: Array<{ path: string; existed: boolean; content: string }> }
+export interface GuardEntry {
+  rel: string
+  abs: string
+  kind: "file" | "dir" | "symlink" | "missing"
+  mode?: number
+  contentB64?: string
+  linkTarget?: string
+  children?: GuardEntry[]
+}
+export interface GuardSnapshot { root: string; entries: GuardEntry[] }
 
-export function guardSnapshot(root: string, paths: string[]): GuardSnapshot {
-  const files = paths.map((p) => {
-    const abs = isAbsolute(p) ? p : join(root, p)
-    const existed = existsSync(abs)
-    return { path: abs, existed, content: existed ? readFileSync(abs, "utf8") : "" }
-  })
-  return { root, files }
+function realpathSafe(p: string): string {
+  try { return realpathSync(p) } catch { return resolve(p) }
+}
+
+/** Resolve a (possibly model-supplied, untrusted) path and reject anything that escapes the workspace root. */
+export function resolveConfined(root: string, p: string): string {
+  const rootReal = realpathSafe(root)
+  if (isAbsolute(p)) throw new Error(`guard path must be workspace-relative: ${p}`)
+  const abs = resolve(rootReal, p)
+  const lex = relative(rootReal, abs)
+  if (lex === ".." || lex.startsWith(".." + "/") || isAbsolute(lex)) {
+    throw new Error(`guard path escapes workspace: ${p}`)
+  }
+  // symlink confinement: realpath of the nearest existing ancestor must stay inside root
+  let probe = abs
+  while (!existsSync(probe) && dirname(probe) !== probe) probe = dirname(probe)
+  const relReal = relative(rootReal, realpathSafe(probe))
+  if (relReal === ".." || relReal.startsWith(".." + "/") || isAbsolute(relReal)) {
+    throw new Error(`guard path escapes workspace via symlink: ${p}`)
+  }
+  return abs
+}
+
+export function snapshotEntry(abs: string, root: string): GuardEntry {
+  const rel = relative(root, abs) || "."
+  let st
+  try { st = lstatSync(abs) } catch { return { rel, abs, kind: "missing" } }
+  if (st.isSymbolicLink()) return { rel, abs, kind: "symlink", linkTarget: readlinkSync(abs) }
+  if (st.isDirectory()) {
+    const children = readdirSync(abs).sort().map((n) => snapshotEntry(join(abs, n), root))
+    return { rel, abs, kind: "dir", mode: st.mode & 0o7777, children }
+  }
+  return { rel, abs, kind: "file", mode: st.mode & 0o7777, contentB64: readFileSync(abs).toString("base64") }
+}
+
+/** `paths` are workspace-relative and untrusted; `trusted` allows manifest-owned absolute paths. */
+export function guardSnapshot(root: string, paths: string[], trusted = false): GuardSnapshot {
+  const entries = paths.map((p) => snapshotEntry(trusted && isAbsolute(p) ? p : resolveConfined(root, p), realpathSafe(root)))
+  return { root: realpathSafe(root), entries }
+}
+
+function removeAny(abs: string) { try { rmSync(abs, { recursive: true, force: true }) } catch { /* best effort */ } }
+
+function restoreEntry(e: GuardEntry, root: string, touched: string[]) {
+  const cur = (() => { try { return lstatSync(e.abs) } catch { return undefined } })()
+  const note = () => { if (!touched.includes(e.rel)) touched.push(e.rel) }
+  if (e.kind === "missing") { if (cur) { note(); removeAny(e.abs) } return }
+  if (e.kind === "symlink") {
+    const target = cur?.isSymbolicLink() ? readlinkSync(e.abs) : undefined
+    if (!cur || !cur.isSymbolicLink() || target !== e.linkTarget) { note(); removeAny(e.abs); try { symlinkSync(e.linkTarget!, e.abs) } catch { /* best effort */ } }
+    return
+  }
+  if (e.kind === "dir") {
+    if (!cur || !cur.isDirectory()) { if (cur) { note(); removeAny(e.abs) } mkdirSync(e.abs, { recursive: true }) }
+    const want = new Set((e.children ?? []).map((c) => basename(c.abs)))
+    const have = existsSync(e.abs) && statSync(e.abs).isDirectory() ? readdirSync(e.abs) : []
+    for (const h of have) if (!want.has(h)) { const child = join(e.abs, h); const crel = relative(root, child); if (!touched.includes(crel)) touched.push(crel); removeAny(child) }
+    for (const c of e.children ?? []) restoreEntry(c, root, touched)
+    if (e.mode !== undefined) { try { chmodSync(e.abs, e.mode) } catch { /* best effort */ } }
+    return
+  }
+  // file
+  const content = Buffer.from(e.contentB64 ?? "", "base64")
+  const same = cur?.isFile() && !cur.isSymbolicLink() && readFileSync(e.abs).equals(content)
+  if (!same) {
+    note()
+    if (cur) removeAny(e.abs)
+    mkdirSync(dirname(e.abs), { recursive: true })
+    writeFileSync(e.abs, content)
+  }
+  if (e.mode !== undefined) {
+    const curMode = (() => { try { return statSync(e.abs).mode & 0o7777 } catch { return undefined } })()
+    if (curMode !== e.mode) { note(); try { chmodSync(e.abs, e.mode) } catch { /* best effort */ } }
+  }
 }
 
 export function guardCheckAndRevert(snap: GuardSnapshot): { touched: boolean; touchedPaths: string[] } {
-  const touchedPaths: string[] = []
-  for (const f of snap.files) {
-    const now = existsSync(f.path) ? readFileSync(f.path, "utf8") : undefined
-    const changed = f.existed ? now !== f.content : now !== undefined
-    if (changed) { touchedPaths.push(relative(snap.root, f.path) || f.path); if (f.existed) writeFileSync(f.path, f.content); else if (existsSync(f.path)) rmSync(f.path) }
-  }
-  return { touched: touchedPaths.length > 0, touchedPaths }
+  const touched: string[] = []
+  for (const e of snap.entries) restoreEntry(e, snap.root, touched)
+  return { touched: touched.length > 0, touchedPaths: touched }
 }
 
-export function runVerify(root: string, command: string, expectExit: number, timeoutMs: number): Promise<{
-  command: string; exitCode: number | null; ok: boolean; executed: boolean; stdout: string; stderr: string; timedOut: boolean
-}> {
-  return new Promise((resolve) => {
-    const child = spawn(command, { cwd: root, shell: true })
-    let stdout = "", stderr = "", timedOut = false
-    const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL") }, timeoutMs)
-    child.stdout?.on("data", (d) => { stdout += d.toString() })
-    child.stderr?.on("data", (d) => { stderr += d.toString() })
-    child.on("close", (code) => {
-      clearTimeout(timer)
-      resolve({ command, exitCode: code, ok: code === expectExit && !timedOut, executed: true, stdout: stdout.slice(-4000), stderr: stderr.slice(-4000), timedOut })
-    })
-    child.on("error", (e) => {
-      clearTimeout(timer)
-      resolve({ command, exitCode: null, ok: false, executed: true, stdout, stderr: String(e), timedOut })
-    })
-  })
+/** A verification receipt is recorded by the trusted orchestrator that ran the host's shell tool. The plugin never executes it. */
+export interface VerifyReceipt {
+  runId: string
+  childSessionID?: string
+  command: string
+  exitCode: number | null
+  passed: boolean
+  stdoutTail?: string
+  stderrTail?: string
+  at: number
 }
 
 /** Parse the cast's machine-readable outcome footer (claims are testimony). */
@@ -486,6 +555,10 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
       const pluginDir = (import.meta as any).dir || process.cwd()
       const repoRoot = resolveRepoRoot(pluginDir)
       const boundaries: string[] = []
+      const hostVersion = typeof ctx?.app?.version === "string" ? ctx.app.version : undefined
+      if (hostVersion && hostVersion !== HOST_TESTED_VERSION) {
+        boundaries.push(`OpenCode host ${hostVersion} != tested ${HOST_TESTED_VERSION}; host compatibility not established`)
+      }
       mergeLocalTiers(repoRoot, manifest)
 
       // ------------- skills -------------
@@ -542,28 +615,10 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
         }
       }
 
-      // ------------- agents: native files + runtime tier models -------------
-      if (manifest.applyAgentTiers !== false && Object.keys(manifest.tiers ?? {}).length) {
-        try {
-          await ctx.agent.transform((e: any) => {
-            if (typeof e.get !== "function") return
-            for (const rel of manifest.agentsDirs ?? ["agents"]) {
-              const dir = join(repoRoot, rel)
-              if (!existsSync(dir) || !statSync(dir).isDirectory()) continue
-              for (const f of readdirSync(dir)) {
-                if (!f.endsWith(".md")) continue
-                const name = basename(f, ".md")
-                const id = manifest.agentNamespace ? `${manifest.agentNamespace}/${name}` : name
-                if (!e.get(id)) continue
-                const data = parseFrontmatter(readFileSync(join(dir, f), "utf8")).data
-                let model = resolveTierModel(manifest, String(data.model ?? ""))
-                if (model && data.effort && !model.includes("#")) model = `${model}#${data.effort}`
-                if (model) e.update(id, (a: any) => { a.model = model })
-              }
-            }
-          })
-        } catch (err: any) { boundaries.push(`agent tier update failed: ${err?.message ?? err}`) }
-      }
+      // ------------- agents: native files; model tiers are applied at install -------------
+      // NOTE: ctx.agent.transform cannot see file-discovered agents at plugin-setup time
+      // (probed: e.get(id) returns undefined), so tiers are injected into the installed
+      // agent copies by scripts/opencode-apply-tiers.py. Nothing to do here.
 
       // ------------- workflow primitives (safe; no eval) -------------
       const live = new Map<string, Set<string>>()
@@ -614,8 +669,8 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
       }
 
       await ctx.storage.set("host:status", {
-        version: RUNTIME_VERSION, api: RUNTIME_API, id: manifest.id, repoRoot,
-        workflow: !!manifest.workflow, boundaries,
+        version: RUNTIME_VERSION, api: RUNTIME_API, hostTested: HOST_TESTED_VERSION, hostVersion: hostVersion ?? null,
+        id: manifest.id, repoRoot, workflow: !!manifest.workflow, boundaries,
       } as any).catch(() => {})
 
       if (cleanups.length) return () => cleanups.forEach((c) => c())
@@ -630,6 +685,8 @@ interface RunMeta {
   phases: Array<{ title: string; at: number }>
   logs: Array<{ message: string; at: number }>
   createdAt: number; status: "open" | "finished" | "cancelled"
+  childSeq?: number
+  verify?: { passed: boolean; command: string; at: number } | null
 }
 
 function newRunId(): string {
@@ -663,6 +720,7 @@ async function registerWorkflow(
     for (const sid of [...set]) { try { await ctx.session.interrupt({ sessionID: sid, resume: false }); n++ } catch { /* best effort */ } }
     return n
   }
+  const terminalError = (run: RunMeta) => ({ content: JSON.stringify({ ok: false, status: "terminal", runStatus: run.status, error: `workflow run is ${run.status}; terminal runs reject further work` }) })
 
   // start
   tools.push({
@@ -685,6 +743,7 @@ async function registerWorkflow(
     execute: async (input: any) => {
       const run = await getRun(input.runId)
       if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
+      if (run.status !== "open") return terminalError(run)
       run.phases.push({ title: input.title, at: Date.now() })
       await putRun(run)
       return { content: JSON.stringify({ ok: true, phases: run.phases.map((p) => p.title) }) }
@@ -699,6 +758,7 @@ async function registerWorkflow(
     execute: async (input: any) => {
       const run = await getRun(input.runId)
       if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
+      if (run.status !== "open") return terminalError(run)
       run.logs.push({ message: input.message, at: Date.now() })
       await putRun(run)
       return { content: JSON.stringify({ ok: true }) }
@@ -731,6 +791,8 @@ async function registerWorkflow(
     execute: async (input: any) => {
       const run = await getRun(input.runId)
       if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
+      if (run.status === "cancelled") return { content: JSON.stringify({ ok: true, cancelled: true, alreadyCancelled: true, interrupted: 0 }) }
+      if (run.status === "finished") return terminalError(run)
       const n = await interruptRun(input.runId)
       run.status = "cancelled"
       await putRun(run)
@@ -746,10 +808,44 @@ async function registerWorkflow(
     execute: async (input: any) => {
       const run = await getRun(input.runId)
       if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
+      if (run.status !== "open") return terminalError(run)
       run.status = "finished"
       await putRun(run)
       await ctx.storage.set(`wf:value:${input.runId}`, input.value ?? null as any).catch(() => {})
-      return { content: JSON.stringify({ ok: true }) }
+      const verdict = run.verify ? (run.verify.passed ? "verify-passed" : "verify-failed") : "finished"
+      return { content: JSON.stringify({ ok: run.verify ? run.verify.passed : true, runStatus: run.status, verdict, verify: run.verify ?? null }) }
+    },
+  })
+
+  // record_verify — persists a verification receipt the ORCHESTRATOR obtained via the host shell tool.
+  // The plugin never executes verify commands itself: no model-supplied shell runs in the server process.
+  tools.push({
+    name: "workflow_record_verify",
+    description:
+      "Record a verification receipt for a run. Obtain command/exitCode by running the host's normal `shell` tool " +
+      "(so OpenCode's shell permission surface applies); this primitive only persists the observed result. " +
+      "The plugin NEVER executes verify commands itself.",
+    input: {
+      type: "object",
+      properties: {
+        runId: { type: "string" }, childSessionID: { type: "string" }, command: { type: "string" },
+        exitCode: { type: "number" }, stdoutTail: { type: "string" }, stderrTail: { type: "string" }, passed: { type: "boolean" },
+      },
+      required: ["runId", "command"], additionalProperties: false,
+    },
+    execute: async (input: any) => {
+      const run = await getRun(input.runId)
+      if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
+      const passed = typeof input.passed === "boolean" ? input.passed : input.exitCode === 0
+      const receipt: VerifyReceipt = {
+        runId: input.runId, childSessionID: input.childSessionID, command: input.command,
+        exitCode: typeof input.exitCode === "number" ? input.exitCode : null, passed,
+        stdoutTail: input.stdoutTail, stderrTail: input.stderrTail, at: Date.now(),
+      }
+      run.verify = { passed, command: input.command, at: receipt.at }
+      await putRun(run)
+      await ctx.storage.set(`wf:verify:${input.runId}`, receipt as any)
+      return { content: JSON.stringify({ ok: true, passed, receipt }) }
     },
   })
 
@@ -760,7 +856,9 @@ async function registerWorkflow(
       "Run ONE bounded agent step in a fresh session and return its report plus the mechanical result. " +
       "The agent's words are testimony; `sessionOutcome`, `guard`, and `verify` are mechanical. " +
       "Options: agentType ('ns:name'), label, phase, schema (JSON Schema subset), model, timeoutMs, worktree, " +
-      "guardPaths (snapshot+revert on touch), verifyCommand/verifyExpectExit (executed only when the repo manifest enables cage.verifyExec).",
+      "guardPaths (workspace-relative, snapshot+revert on touch; escapes are rejected), " +
+      "verifyId (looks up a trusted command from the repo manifest and returns it as a HINT for the caller to run " +
+      "via the host shell tool, then record with workflow_record_verify — the plugin never executes it).",
     input: {
       type: "object",
       properties: {
@@ -768,7 +866,7 @@ async function registerWorkflow(
         agentType: { type: "string" }, phase: { type: "string" }, schema: {}, model: { type: "string" },
         timeoutMs: { type: "number" }, worktree: { type: "boolean" },
         guardPaths: { type: "array", items: { type: "string" } },
-        verifyCommand: { type: "string" }, verifyExpectExit: { type: "number" },
+        verifyId: { type: "string" },
       },
       required: ["runId", "prompt"], additionalProperties: false,
     },
@@ -777,6 +875,7 @@ async function registerWorkflow(
       if (!run || run.pluginId !== manifest.id) {
         return { content: JSON.stringify({ ok: false, status: "executor-error", error: "unknown runId for this plugin" }) }
       }
+      if (run.status !== "open") return terminalError(run)
       const label = input.label || input.agentType || "workflow agent"
       const startedAt = Date.now()
       let sessionID: string | undefined
@@ -794,11 +893,15 @@ async function registerWorkflow(
           if (!known) throw new Error(`unknown agentType "${input.agentType}" (resolved "${agentID}")`)
         }
 
-        const created = await ctx.session.create({
-          title: (input.phase ? `[${input.phase}] ` : "") + label,
-          agent: agentID,
-        })
+        const created = await ctx.session.create({ title: (input.phase ? `[${input.phase}] ` : "") + label })
         sessionID = created.id
+        if (agentID) {
+          await ctx.session.switchAgent({ sessionID, agent: agentID })
+          const actual = await ctx.session.get({ sessionID }).catch(() => undefined)
+          if (!actual || actual.agent !== agentID) {
+            throw new Error(`agent selection failed: requested ${agentID}, session reports ${actual?.agent ?? "none"}`)
+          }
+        }
         registerLive(run.runId, sessionID)
         const receipt: any = {
           pluginId: manifest.id, runId: run.runId, parentSessionID: run.parentSessionID ?? tc.sessionID,
@@ -806,6 +909,14 @@ async function registerWorkflow(
           phase: input.phase ?? run.phases[run.phases.length - 1]?.title ?? null, startedAt,
         }
         await ctx.storage.set(`child:${sessionID}`, receipt as any)
+
+        // cancellation race guard: if the run was cancelled around session creation, stop now.
+        const live0 = await getRun(run.runId)
+        if (!live0 || live0.status !== "open") {
+          try { await ctx.session.interrupt({ sessionID, resume: false }) } catch { /* best effort */ }
+          clearLive(run.runId, sessionID)
+          return terminalError(live0 ?? run)
+        }
 
         // model (tier alias -> provider/model[#variant]); honest fallback, recorded
         let modelNote: string | undefined
@@ -833,7 +944,9 @@ async function registerWorkflow(
           try {
             const projectID = tc?.projectID ?? (await ctx.session.get({ sessionID }).catch(() => undefined))?.projectID
             if (projectID) {
-              const wt = await ctx.worktree.create({ projectID, name: `${ns}-${run.runId}` })
+              // unique per child session (childSeq races under concurrent Promise.all)
+              const wtName = `${ns}-${run.runId}-${String(sessionID).slice(-12)}`
+              const wt = await ctx.worktree.create({ projectID, name: wtName })
               worktreeDir = wt?.directory
               if (worktreeDir) { await ctx.session.move({ sessionID, directory: worktreeDir }); await ctx.worktree.refresh?.().catch?.(() => {}) }
               worktreeProjectID = projectID
@@ -842,9 +955,17 @@ async function registerWorkflow(
         }
         const workRoot = worktreeDir ?? (await ctx.session.get({ sessionID }).catch(() => undefined))?.location?.directory ?? repoRoot
 
-        // guard snapshot
-        const guardPaths: string[] = (input.guardPaths ?? manifest.cage?.defaultProtected ?? []) as string[]
-        const snap = guardPaths.length ? guardSnapshot(workRoot, guardPaths) : undefined
+        // guard snapshot: model paths are untrusted + workspace-confined; manifest defaults are trusted.
+        let snap: GuardSnapshot | undefined
+        let guardError: string | undefined
+        try {
+          const entries: GuardEntry[] = []
+          const modelGuard: string[] = (input.guardPaths ?? []) as string[]
+          const defaultGuard: string[] = (manifest.cage?.defaultProtected ?? []) as string[]
+          if (modelGuard.length) entries.push(...guardSnapshot(workRoot, modelGuard, false).entries)
+          if (defaultGuard.length) entries.push(...guardSnapshot(workRoot, defaultGuard, true).entries)
+          snap = entries.length ? { root: workRoot, entries } : undefined
+        } catch (e: any) { guardError = e?.message ?? String(e) }
 
         // run
         const timeoutMs = typeof input.timeoutMs === "number" ? input.timeoutMs : undefined
@@ -862,8 +983,10 @@ async function registerWorkflow(
           await waitPromise
         }
 
+        const info = await ctx.session.get({ sessionID }).catch(() => undefined)
         const msgs = await ctx.session.context({ sessionID }).catch(() => [])
-        const { text, outcome } = readSessionResult(msgs as any[])
+        const { text } = readSessionResult(msgs as any[])
+        const outcome = info?.outcome ?? readSessionResult(msgs as any[]).outcome
         receipt.sessionOutcome = outcome ?? null
         const claim = parseOutcomeClaim(text)
 
@@ -871,16 +994,11 @@ async function registerWorkflow(
         let guard: any
         if (snap) { guard = guardCheckAndRevert(snap); receipt.guard = guard }
 
-        // verify (mechanical; only if the repo-committed manifest enables it)
-        let verify: any
-        if (input.verifyCommand) {
-          if (manifest.cage?.verifyExec) {
-            verify = await runVerify(workRoot, input.verifyCommand, typeof input.verifyExpectExit === "number" ? input.verifyExpectExit : 0, 60_000)
-            receipt.verify = verify
-          } else {
-            verify = { command: input.verifyCommand, executed: false, note: "manifest did not enable cage.verifyExec" }
-            receipt.verify = verify
-          }
+        // verify HINT only — the plugin never executes it. The orchestrator runs the trusted command via the host shell tool.
+        let verifyHint: any = null
+        if (input.verifyId) {
+          const cmd = (manifest.cage?.verifies ?? {})[input.verifyId]
+          verifyHint = cmd ? { id: input.verifyId, command: cmd, executed: false } : { id: input.verifyId, error: "unknown verifyId" }
         }
 
         // structured output (real validation; a schema miss is a hard, reported status)
@@ -895,14 +1013,13 @@ async function registerWorkflow(
         }
 
         // derive the mechanical status — testimony never upgrades itself.
-        // precedence: interruption > executor error > guard-touch > verify-failed > schema-error > claim
         let status = "done"
-        if (timedOut) status = "interrupted"
+        if (guardError) status = "guard-rejected"
+        else if (timedOut) status = "interrupted"
         else if (outcome === "interrupted") status = "interrupted"
         else if (waitErr) status = "executor-error"
         else if (outcome && outcome !== "succeeded") status = "executor-error"
         if (status === "done" && guard?.touched) status = "guard-touch"
-        if (status === "done" && verify?.executed && !verify.ok) status = "verify-failed"
         if (status === "done" && schemaError) status = "schema-error"
         if (status === "done" && claim.outcome === "handed-back") status = "handed-back"
         if (status === "done" && (claim.outcome === "too-big" || claim.outcome === "stuck")) status = "too-big"
@@ -911,11 +1028,11 @@ async function registerWorkflow(
         const result = {
           ok, status, runId: run.runId, pluginId: manifest.id,
           childSessionID: sessionID, agentID: agentID ?? null, role: input.agentType ?? null,
-          sessionOutcome: outcome ?? null, timedOut, schemaError: schemaError ?? null,
-          report: text, claim, guard: guard ?? null, verify: verify ?? null,
+          sessionOutcome: outcome ?? null, timedOut, schemaError: schemaError ?? null, guardError: guardError ?? null,
+          report: text, claim, guard: guard ?? null, verifyHint,
           output: output ?? null, worktree: worktreeDir ?? null, model: receipt.model ?? null, modelNote: modelNote ?? null,
           elapsedMs: Date.now() - startedAt,
-          testimony: "The agent's report and claim are testimony; status/guard/verify are mechanical.",
+          testimony: "The agent's report and claim are testimony; status and guard are mechanical; verify is recorded separately via workflow_record_verify.",
         }
         receipt.outcome = status; receipt.elapsedMs = result.elapsedMs
         await addReceipt(run.runId, receipt)
@@ -934,7 +1051,7 @@ async function registerWorkflow(
         if (sessionID) clearLive(run.runId, sessionID)
         if (worktreeDir && worktreeProjectID) {
           try {
-            await ctx.worktree.remove({ projectID: worktreeProjectID, directory: worktreeDir })
+            await ctx.worktree.remove({ projectID: worktreeProjectID, directory: worktreeDir, force: true })
             await addReceipt(run.runId, { pluginId: manifest.id, runId: run.runId, sessionID, label, outcome: "worktree-removed", worktree: worktreeDir })
           } catch (e: any) {
             await addReceipt(run.runId, { pluginId: manifest.id, runId: run.runId, sessionID, label, outcome: "worktree-remove-failed", worktree: worktreeDir, error: String(e) }).catch(() => {})

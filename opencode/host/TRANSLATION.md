@@ -39,33 +39,50 @@ because the target file is imported by absolute path, relative imports and
 ## Workflow primitives (safe)
 
 `workflow_start`, `workflow_agent`, `workflow_phase`, `workflow_log`,
-`workflow_status`, `workflow_cancel`, `workflow_finish` — registered under the
-plugin's own tool namespace. `workflow_agent` owns: fresh session creation, agent
-selection, model-tier application, structured-output validation, timeout, worktree
-isolation, guard snapshot/revert, the verify gate, receipts, and cleanup.
+`workflow_status`, `workflow_record_verify`, `workflow_cancel`, `workflow_finish` —
+registered under the plugin's own tool namespace. `workflow_agent` owns: fresh session
+creation, **explicit `switchAgent` + assertion of the actual agent**, model-tier
+application, structured-output validation, timeout, **unique** worktree isolation, guard
+snapshot/revert, receipts, and cleanup.
 
-**Status contract:** `{ ok, status, report, claim, guard, verify, output, childSessionID }`.
-- `status` ∈ `done | handed-back | too-big | guard-touch | verify-failed | executor-error | interrupted | schema-error`.
+**No server-side shell execution.** `verifyId` returns a trusted command as a *hint*; the
+orchestrator runs it with the host's normal `shell` tool (so OpenCode's shell permission
+surface applies) and records the observed result with `workflow_record_verify`. The plugin
+never `spawn`s a model-supplied command.
+
+**State machine:** `OPEN → FINISHED | CANCELLED`, both terminal. After a terminal state,
+`workflow_agent`/`workflow_phase`/`workflow_log`/`workflow_finish` return explicit
+`{ok:false,status:"terminal"}` errors; `workflow_cancel` is idempotent only.
+
+**Status contract:** `{ ok, status, report, claim, guard, verifyHint, output, childSessionID }`.
+- `status` ∈ `done | handed-back | too-big | guard-touch | guard-rejected | schema-error | executor-error | interrupted`.
 - terminal success/failure comes from the session's real `idle.outcome`, never an invented marker.
-- the child's `report`/`claim` is testimony; `guard`/`verify`/`status` are mechanical.
+- the child's `report`/`claim` is testimony; `guard`/`status` are mechanical; verify is recorded separately.
 
 ### Cage machinery (grok-bitch)
 
-`guardPaths` snapshot files before a step and revert any change after, yielding
-`guard-touch`. `verifyCommand`/`verifyExpectExit` run the acceptance command and yield
-`verify-failed` on a non-zero exit. The verify execution is trusted cage machinery,
-enabled only by this repo's committed manifest (`cage.verifyExec`), equivalent in trust
-to OpenCode's own shell tool.
+- **Byte-exact, recursive guard.** `guardPaths` snapshots protected files, directories
+  (recursively), and symlinks as raw bytes + mode; after the step it detects modified /
+  deleted / created files, directory-membership changes, type replacement, symlink
+  retargets, and mode changes, then restores exact original state and reports every touched
+  path. No UTF-8 round-trip; binary restores byte-for-byte.
+- **Workspace confinement.** Model-supplied `guardPaths` are resolved and rejected if they
+  escape the workspace via `..`, an absolute path, or a symlink. Repo-owned
+  `defaultProtected` paths are trusted.
+- **Verify via host permissions.** See above — the plugin executes no verify shell.
 
 ### Not reproduced (boundaries)
 
 - No hosted `/workflows` monitoring pane; inspect runs with `workflow_status`.
 - `meta`/declarative DAGs from Claude workflows are not pre-registered; Code Mode composes.
 - Claude's `PushNotification` has no OpenCode action and is recorded, not granted.
-- Programmatic sessions cannot set a native `parentID` (create drops it); ownership is our
-  own recorded metadata, and the Session API's `idle.outcome` is the completion contract.
-- Server plugins have no toast API; hook advisories are durable (`workflow_status`) — native
-  UI surfacing would require a separate TUI plugin.
+- Programmatic sessions cannot set a native `parentID` (create drops it). The recorded
+  `pluginId/runId/parentSessionID/sessionID/agentID/role` is a **logical parent
+  relationship managed by our workflow layer**, not a native OpenCode parent-child session.
+- Server plugins have no toast API; hook advisories are durable and read via `workflow_status`.
+- **Host compatibility gate:** this adapter was probed against OpenCode **2.0.14** and uses
+  the 2.0.14 `Skill.Info` contract (`path`). A different host version is reported as
+  `host compatibility not established` in `host:status`/validation, not silently accepted.
 
 ## grok-bitch is a Rick & Morty orchestrator
 

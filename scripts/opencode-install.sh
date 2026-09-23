@@ -17,14 +17,14 @@ fi
 printf '%s\n' "// MANAGED by $REPO_ROOT/scripts/opencode-install.sh" "export { default } from \"$ENTRY\"" > "$LOADER"
 echo "plugin: $LOADER -> $ENTRY"
 
+AGENTS_SRC="$REPO_ROOT/opencode/agents"
 AGENTS_TARGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/agents"
 AGENTS_TARGET="$AGENTS_TARGET_DIR/grok-bitch"
 mkdir -p "$AGENTS_TARGET_DIR"
-if [ -L "$AGENTS_TARGET" ]; then
-  [ "$(readlink "$AGENTS_TARGET")" = "$REPO_ROOT/opencode/agents" ] || { echo "refusing to overwrite $AGENTS_TARGET" >&2; exit 1; }
-else
-  [ -e "$AGENTS_TARGET" ] && { echo "refusing to overwrite $AGENTS_TARGET" >&2; exit 1; }
-  ln -s "$REPO_ROOT/opencode/agents" "$AGENTS_TARGET"
+if [ -e "$AGENTS_TARGET" ] && [ ! -f "$AGENTS_TARGET/.managed-by" ]; then
+  echo "refusing to overwrite unowned $AGENTS_TARGET" >&2; exit 1
 fi
-echo "agents: $AGENTS_TARGET -> $REPO_ROOT/opencode/agents"
+rm -rf "$AGENTS_TARGET"
+python3 "$REPO_ROOT/scripts/opencode-apply-tiers.py" "$AGENTS_SRC" "$AGENTS_TARGET" "$REPO_ROOT" || { echo "apply-tiers failed" >&2; exit 1; }
+echo "agents: $AGENTS_TARGET (copied; tier models applied from tiers.local.json/env)"
 echo "done. reload opencode if needed, then run scripts/opencode-validate.py --runtime"

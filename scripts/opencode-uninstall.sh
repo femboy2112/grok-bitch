@@ -10,6 +10,6 @@ else
 fi
 
 AGENTS_TARGET="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/agents/grok-bitch"
-if [ -L "$AGENTS_TARGET" ] && [ "$(readlink "$AGENTS_TARGET")" = "$REPO_ROOT/opencode/agents" ]; then
-  rm -f "$AGENTS_TARGET"; echo "uninstalled agents: $AGENTS_TARGET"
+if [ -f "$AGENTS_TARGET/.managed-by" ] && [ "$(cat "$AGENTS_TARGET/.managed-by")" = "$REPO_ROOT" ]; then
+  rm -rf "$AGENTS_TARGET"; echo "uninstalled agents: $AGENTS_TARGET"
 fi
