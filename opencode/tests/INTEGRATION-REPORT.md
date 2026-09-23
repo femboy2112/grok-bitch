@@ -104,7 +104,58 @@ Host version gate: `tested == installed (2.0.14)`.
   shared background service was not performed here; reload-persistence was verified in the
   previous round).
 
-## 5. Reproduce
+## 5. Agent selection, Zion failure semantics, Euler phases (cold host)
+
+**Agent selection — VERIFIED.** `switchAgent` + assertion of the actual session agent:
+
+```json
+RESULT: [{"requested":"grok-bitch:morty","actual":"grok-bitch/morty"},
+ {"requested":"grok-bitch:rick","actual":"grok-bitch/rick"},
+ {"requested":"project-zion:neo","actual":"project-zion/neo"},
+ {"requested":"project-zion:smith","actual":"project-zion/smith"},
+ {"requested":"project-euler:euler","actual":"project-euler/euler"},
+ {"requested":"project-euler:dalembert","actual":"project-euler/dalembert"}]
+```
+
+**Zion: one child failure does not become consensus — VERIFIED.** Two parallel bearings,
+one valid, one told to emit no JSON under a strict schema:
+
+```json
+{"agents":["project-zion/oracle","project-zion/smith"],
+ "statuses":["done","schema-error"],
+ "schemaErrors":[null,"no parseable JSON found in report: ... \"nope\""],
+ "outputs":[{"bearing":"A","finding":"fine"},null]}
+```
+
+The runtime preserves each child's separate status/output; it never averages a failure into
+a success. (Whether a downstream synthesis treats them as consensus is the caller's
+reasoning over this preserved evidence.)
+
+**Euler phases + structured Ledger transfer — VERIFIED.** Distinct Academy agents per phase,
+structured output validated per child:
+
+```json
+{"agents":["project-euler/daniel","project-euler/goldbach","project-euler/dalembert"],
+ "ledgers":["Observed","Conjectured","Observed"]}
+```
+
+The Ledger *value* is model testimony; the agent selection, phases, and structured
+validation are mechanical. "Numerics alone ≠ Demonstrated" is enforced by the skill/runtime
+design, not claimed as a numerical probe here.
+
+## 6. Not run / boundaries
+
+- UpperManagement `audit`/`reconcile` against a **real provider** (admission is
+  `codex|claude`; none configured here): **UNVERIFIED**. The CLI admission check and
+  `packet` path are VERIFIED.
+- Full restart of the shared background service (to prove durable OPEN-run survival):
+  **BOUNDARY** — not performed to avoid terminating the auditing session; cold-start of a
+  fresh `--standalone` server loading all plugins IS verified.
+- Worktree mixed outcomes (success/fail/interrupt with cleanup) and 3-parallel worktree
+  uniqueness: VERIFIED in the previous round, not re-run here.
+
+## 7. Reproduce
+
 
 ```sh
 bash scripts/opencode-install.sh
