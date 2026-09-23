@@ -456,10 +456,13 @@ python3 scripts/opencode-validate.py --runtime   # + live host registry probes
 - Generated agents **`grok-bitch/<name>`** with a **closed, deny-first**
   permission allowlist translated from the canonical `tools:` list — an explicitly
   read-only agent cannot silently keep shell/edit/subagent capability.
-- **Workflow primitives** (`grok-bitch.workflow_start/agent/phase/log/status/cancel/finish`)
+- **Workflow primitives** (`grok-bitch.workflow_start/agent/phase/log/status/verify/cancel/finish`)
   composed from OpenCode **Code Mode**. No model-authored string is ever evaluated by the
   plugin process (`new Function`/`eval` removed); the model's JS runs only in Code Mode's
   sandbox and reaches the world solely through permission-checked tools.
+- **Host-attested verification**: `workflow_verify`{runId, verifyId} resolves a repo-owned
+  trusted command and certifies only from OpenCode's own telemetry for a real `shell` run of
+  it. The caller cannot supply the command or the exit code; no attested execution ⇒ verify fails.
 - `SubagentStop` completion hooks translated to child-session events, firing **only** for
   this plugin's own children or its own agent namespace.
 

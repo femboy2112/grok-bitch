@@ -39,16 +39,20 @@ because the target file is imported by absolute path, relative imports and
 ## Workflow primitives (safe)
 
 `workflow_start`, `workflow_agent`, `workflow_phase`, `workflow_log`,
-`workflow_status`, `workflow_record_verify`, `workflow_cancel`, `workflow_finish` —
+`workflow_status`, `workflow_verify`, `workflow_cancel`, `workflow_finish` —
 registered under the plugin's own tool namespace. `workflow_agent` owns: fresh session
 creation, **explicit `switchAgent` + assertion of the actual agent**, model-tier
 application, structured-output validation, timeout, **unique** worktree isolation, guard
 snapshot/revert, receipts, and cleanup.
 
-**No server-side shell execution.** `verifyId` returns a trusted command as a *hint*; the
-orchestrator runs it with the host's normal `shell` tool (so OpenCode's shell permission
-surface applies) and records the observed result with `workflow_record_verify`. The plugin
-never `spawn`s a model-supplied command.
+**No server-side shell execution, and no self-certification.** `verifyId` resolves to a
+**repo-owned trusted command** (never model-supplied). The orchestrator runs that exact
+command with the host's normal `shell` tool (so OpenCode's shell permission surface
+applies); the runtime observes the execution through OpenCode's own tool-execution
+telemetry and `workflow_verify` certifies from that observation. The caller cannot supply
+`command`, `exitCode`, or `passed`: if no host-attested execution of the trusted command
+is observed in the calling session, verification **fails** (it can never pass by
+assertion). The plugin never `spawn`s a model-supplied command.
 
 **State machine:** `OPEN → FINISHED | CANCELLED`, both terminal. After a terminal state,
 `workflow_agent`/`workflow_phase`/`workflow_log`/`workflow_finish` return explicit
@@ -57,7 +61,13 @@ never `spawn`s a model-supplied command.
 **Status contract:** `{ ok, status, report, claim, guard, verifyHint, output, childSessionID }`.
 - `status` ∈ `done | handed-back | too-big | guard-touch | guard-rejected | schema-error | executor-error | interrupted`.
 - terminal success/failure comes from the session's real `idle.outcome`, never an invented marker.
-- the child's `report`/`claim` is testimony; `guard`/`status` are mechanical; verify is recorded separately.
+
+**Evidence semantics (do not overclaim):**
+- the child's `report`/`claim` is **testimony**;
+- `status` and `guard` are **mechanical**;
+- a `verify` receipt is **mechanically attested host execution** (only when `attested:true`);
+- the final certification is the **caller/orchestrator reasoning** over independent evidence.
+
 
 ### Cage machinery (grok-bitch)
 
@@ -69,7 +79,10 @@ never `spawn`s a model-supplied command.
 - **Workspace confinement.** Model-supplied `guardPaths` are resolved and rejected if they
   escape the workspace via `..`, an absolute path, or a symlink. Repo-owned
   `defaultProtected` paths are trusted.
-- **Verify via host permissions.** See above — the plugin executes no verify shell.
+- **Verify is host-attested, never self-certified.** See above — the plugin executes no
+  verify shell, and a verification receipt is produced only from OpenCode's own telemetry
+  for a real execution of the repo-owned trusted command. An unattested verification is
+  reported as `status:"no-attestation"` and fails.
 
 ### Not reproduced (boundaries)
 

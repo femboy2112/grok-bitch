@@ -4,8 +4,9 @@
 
   static     adapter unit tests + structure + hash pin + managed-path hygiene
   --runtime  ALSO probe the live host registries (plugin/agent/command/skill)
+  --live     ALSO run a real host round-trip through Code Mode (workflow primitive reachability)
 
-Usage: python3 scripts/opencode-validate.py [--runtime] [--model provider/model]
+Usage: python3 scripts/opencode-validate.py [--runtime] [--live] [--model provider/model]
 """
 import argparse, hashlib, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path

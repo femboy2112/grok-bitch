@@ -10,9 +10,11 @@ export default defineHostPlugin({
   "applyAgentTiers": true,
   "cage": {
     "defaultProtected": [],
-    "verifies": {}
+    "verifies": {
+      "adapter-validate": "python3 {root}/scripts/opencode-validate.py"
+    }
   },
-  "canonicalRuntimeSha": "4001aa56ff09f74a645abf824d0ccaa2076d922d463d9fb90abda9665eabad15",
+  "canonicalRuntimeSha": "cb716a4c3e23e33a103717da1cc008618a7972acd3ea85df5105a690fc7d4919",
   "commandAliases": [
     "adventure-mode",
     "auto-rick",

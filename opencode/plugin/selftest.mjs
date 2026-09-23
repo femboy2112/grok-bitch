@@ -7,7 +7,7 @@ import {
   tokenizeArgs, parseOutcomeClaim, resolveTierModel, guardSnapshot, guardCheckAndRevert,
   resolveConfined, SchemaError,
 } from "./runtime.ts"
-import { writeFileSync, mkdtempSync, readFileSync, existsSync, symlinkSync, mkdirSync, unlinkSync, chmodSync, statSync, readlinkSync } from "node:fs"
+import { writeFileSync, mkdtempSync, readFileSync, existsSync, symlinkSync, mkdirSync, unlinkSync, chmodSync, statSync, readlinkSync, rmSync, rmdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -150,6 +150,49 @@ const s5 = guardSnapshot(dir, ["mode.txt"])
 chmodSync(join(dir, "mode.txt"), 0o644)
 guardCheckAndRevert(s5)
 ok("guard restores mode", (statSync(join(dir, "mode.txt")).mode & 0o7777) === 0o600)
+
+// --- directory guard regressions: a mechanically-restored breach must never report clean ---
+// empty protected directory deleted
+mkdirSync(join(dir, "emptydir"))
+const sd1 = guardSnapshot(dir, ["emptydir"])
+rmSync(join(dir, "emptydir"), { recursive: true, force: true })
+const gd1 = guardCheckAndRevert(sd1)
+ok("empty dir deleted -> touched + restored", gd1.touched && gd1.touchedPaths.includes("emptydir") && statSync(join(dir, "emptydir")).isDirectory())
+
+// empty protected directory mode changed
+mkdirSync(join(dir, "modedir")); chmodSync(join(dir, "modedir"), 0o700)
+const sd2 = guardSnapshot(dir, ["modedir"])
+chmodSync(join(dir, "modedir"), 0o755)
+const gd2 = guardCheckAndRevert(sd2)
+ok("dir mode change -> touched + restored", gd2.touched && gd2.touchedPaths.includes("modedir") && (statSync(join(dir, "modedir")).mode & 0o7777) === 0o700)
+
+// non-empty protected directory deleted
+mkdirSync(join(dir, "full")); writeFileSync(join(dir, "full", "a.txt"), "A")
+const sd3 = guardSnapshot(dir, ["full"])
+rmSync(join(dir, "full"), { recursive: true, force: true })
+const gd3 = guardCheckAndRevert(sd3)
+ok("non-empty dir deleted -> touched + restored", gd3.touched && gd3.touchedPaths.includes("full") && readFileSync(join(dir, "full", "a.txt"), "utf8") === "A")
+
+// non-empty protected directory mode changed
+mkdirSync(join(dir, "fullmode")); writeFileSync(join(dir, "fullmode", "b.txt"), "B"); chmodSync(join(dir, "fullmode"), 0o750)
+const sd4 = guardSnapshot(dir, ["fullmode"])
+chmodSync(join(dir, "fullmode"), 0o700)
+const gd4 = guardCheckAndRevert(sd4)
+ok("non-empty dir mode change -> touched + restored", gd4.touched && gd4.touchedPaths.includes("fullmode") && (statSync(join(dir, "fullmode")).mode & 0o7777) === 0o750)
+
+// directory replaced by file
+mkdirSync(join(dir, "d2f")); writeFileSync(join(dir, "d2f", "x"), "X")
+const sd5 = guardSnapshot(dir, ["d2f"])
+rmSync(join(dir, "d2f"), { recursive: true, force: true }); writeFileSync(join(dir, "d2f"), "now a file")
+const gd5 = guardCheckAndRevert(sd5)
+ok("dir replaced by file -> touched + restored", gd5.touched && gd5.touchedPaths.includes("d2f") && statSync(join(dir, "d2f")).isDirectory() && readFileSync(join(dir, "d2f", "x"), "utf8") === "X")
+
+// file replaced by directory
+writeFileSync(join(dir, "f2d"), "FILE")
+const sd6 = guardSnapshot(dir, ["f2d"])
+rmSync(join(dir, "f2d")); mkdirSync(join(dir, "f2d")); writeFileSync(join(dir, "f2d", "inner"), "I")
+const gd6 = guardCheckAndRevert(sd6)
+ok("file replaced by dir -> touched + restored", gd6.touched && gd6.touchedPaths.includes("f2d") && statSync(join(dir, "f2d")).isFile() && readFileSync(join(dir, "f2d"), "utf8") === "FILE")
 
 // --- workspace confinement (untrusted guardPaths) ---
 const outside = mkdtempSync(join(tmpdir(), "outside-"))

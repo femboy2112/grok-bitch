@@ -39,6 +39,7 @@ import {
 } from "node:fs"
 import { join, dirname, basename, isAbsolute, relative, resolve } from "node:path"
 import { spawn } from "node:child_process"
+import { createHash } from "node:crypto"
 
 export const RUNTIME_VERSION = "2.0.0"
 export const RUNTIME_API = "opencode-2.0.14"
@@ -472,12 +473,21 @@ function restoreEntry(e: GuardEntry, root: string, touched: string[]) {
     return
   }
   if (e.kind === "dir") {
-    if (!cur || !cur.isDirectory()) { if (cur) { note(); removeAny(e.abs) } mkdirSync(e.abs, { recursive: true }) }
+    if (!cur) {
+      // the protected directory itself was deleted — recreate it and report the touch
+      note(); mkdirSync(e.abs, { recursive: true })
+    } else if (!cur.isDirectory()) {
+      // replaced by a file/symlink — report and put the directory back
+      note(); removeAny(e.abs); mkdirSync(e.abs, { recursive: true })
+    }
     const want = new Set((e.children ?? []).map((c) => basename(c.abs)))
     const have = existsSync(e.abs) && statSync(e.abs).isDirectory() ? readdirSync(e.abs) : []
     for (const h of have) if (!want.has(h)) { const child = join(e.abs, h); const crel = relative(root, child); if (!touched.includes(crel)) touched.push(crel); removeAny(child) }
     for (const c of e.children ?? []) restoreEntry(c, root, touched)
-    if (e.mode !== undefined) { try { chmodSync(e.abs, e.mode) } catch { /* best effort */ } }
+    if (e.mode !== undefined) {
+      const curMode = (() => { try { return statSync(e.abs).mode & 0o7777 } catch { return undefined } })()
+      if (curMode !== e.mode) { note(); try { chmodSync(e.abs, e.mode) } catch { /* best effort */ } }
+    }
     return
   }
   // file
@@ -501,16 +511,66 @@ export function guardCheckAndRevert(snap: GuardSnapshot): { touched: boolean; to
   return { touched: touched.length > 0, touchedPaths: touched }
 }
 
-/** A verification receipt is recorded by the trusted orchestrator that ran the host's shell tool. The plugin never executes it. */
+/**
+ * A verification receipt. It is produced ONLY from host-attested telemetry of a real
+ * shell execution through OpenCode's own shell permission surface. The caller cannot
+ * supply `exitCode`/`passed`: the runtime reads them from the host's tool-execution hooks.
+ */
 export interface VerifyReceipt {
   runId: string
   childSessionID?: string
+  verifyId?: string
   command: string
   exitCode: number | null
   passed: boolean
+  /** true only when the receipt came from host-attested telemetry (never caller assertion). */
+  attested: boolean
+  stdoutTail?: string
+  stderrTail?: string
+  sessionID?: string
+  callID?: string
+  at: number
+}
+
+/** Host-attested observation of one execution of a trusted verifier command. */
+interface Attestation {
+  command: string
+  exitCode: number | null
+  sessionID: string
+  agent?: string
+  callID?: string
   stdoutTail?: string
   stderrTail?: string
   at: number
+}
+
+/** Live telemetry hook registration per plugin (re-registered on every setup, prior disposed). */
+const ATTEST_REG = new Map<string, { dispose?: () => any }>()
+
+/** Resolve the repo-owned trusted verifiers, substituting {root}. */
+export function trustedVerifies(manifest: HostManifest, repoRoot: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [id, cmd] of Object.entries(manifest.cage?.verifies ?? {})) {
+    if (typeof cmd === "string") out[id] = cmd.replace(/\{root\}/g, repoRoot)
+  }
+  return out
+}
+
+function commandKey(sessionID: string, command: string): string {
+  return `verify-attest:${sessionID}:${createHash("sha256").update(command).digest("hex").slice(0, 24)}`
+}
+
+function firstNumber(xs: any[]): number | undefined {
+  for (const x of xs) if (typeof x === "number" && Number.isFinite(x)) return x
+  return undefined
+}
+
+function resultText(r: any): string {
+  if (typeof r?.output === "string") return r.output
+  if (typeof r?.output?.output === "string") return r.output.output
+  if (typeof r?.content === "string") return r.content
+  if (Array.isArray(r?.content)) return r.content.filter((p: any) => p?.type === "text" && typeof p.text === "string").map((p: any) => p.text).join("")
+  return ""
 }
 
 /** Parse the cast's machine-readable outcome footer (claims are testimony). */
@@ -555,11 +615,44 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
       const pluginDir = (import.meta as any).dir || process.cwd()
       const repoRoot = resolveRepoRoot(pluginDir)
       const boundaries: string[] = []
+      const cleanups: Array<() => void> = []
       const hostVersion = typeof ctx?.app?.version === "string" ? ctx.app.version : undefined
       if (hostVersion && hostVersion !== HOST_TESTED_VERSION) {
         boundaries.push(`OpenCode host ${hostVersion} != tested ${HOST_TESTED_VERSION}; host compatibility not established`)
       }
       mergeLocalTiers(repoRoot, manifest)
+
+      // ---- host-attested verification telemetry ----
+      const trusted = trustedVerifies(manifest, repoRoot)
+      if (Object.keys(trusted).length && ctx?.tool?.hook) {
+        const trustedSet = new Set(Object.values(trusted))
+        const onAfter = (i: any) => {
+          try {
+            if (i?.status !== "completed") return
+            const raw = typeof i?.input?.command === "string" ? i.input.command : undefined
+            if (!raw) return
+            const cmd = raw.trim()
+            if (!trustedSet.has(cmd)) return
+            const r: any = i.result ?? {}
+            const exitCode = firstNumber([r?.output?.exit, r?.metadata?.exit, r?.output?.exitCode, r?.metadata?.exitCode])
+            const text = resultText(r)
+            const att: Attestation = {
+              command: cmd, exitCode: typeof exitCode === "number" ? exitCode : null,
+              sessionID: String(i.sessionID ?? ""), agent: i.agent,
+              callID: typeof i.id === "string" ? i.id : undefined,
+              stdoutTail: text ? text.slice(-4000) : undefined, at: Date.now(),
+            }
+            if (att.sessionID) void (ctx.storage.set(commandKey(att.sessionID, cmd), att as any) as any)?.catch?.(() => {})
+          } catch { /* telemetry must never break a tool call */ }
+        }
+        try {
+          await ctx.tool.hook("execute.before", () => { /* keep parity with the probed registration */ })
+          const reg = await ctx.tool.hook("execute.after", onAfter)
+          ATTEST_REG.set(manifest.id, reg)
+          if (ctx?.shell?.hook) { try { await ctx.shell.hook("create.before", () => {}) } catch { /* */ } }
+        } catch (e: any) { boundaries.push(`verify telemetry hook unavailable: ${e?.message ?? e}`) }
+      }
+      // ---- /host-attested verification telemetry ----
 
       // ------------- skills -------------
       if (manifest.registerSkills !== false) {
@@ -630,7 +723,6 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
       if (manifest.workflow) await registerWorkflow(ctx, manifest, repoRoot, boundaries, live)
 
       // ------------- completion hooks -------------
-      const cleanups: Array<() => void> = []
       for (const hook of manifest.hooks ?? []) {
         if (hook.claudeEvent !== "SubagentStop") continue
         const controller = new AbortController()
@@ -668,6 +760,8 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
         })()
       }
 
+      // ---- /host-attested verification telemetry (registered near the top of setup) ----
+
       await ctx.storage.set("host:status", {
         version: RUNTIME_VERSION, api: RUNTIME_API, hostTested: HOST_TESTED_VERSION, hostVersion: hostVersion ?? null,
         id: manifest.id, repoRoot, workflow: !!manifest.workflow, boundaries,
@@ -687,6 +781,7 @@ interface RunMeta {
   createdAt: number; status: "open" | "finished" | "cancelled"
   childSeq?: number
   verify?: { passed: boolean; command: string; at: number } | null
+  verifies?: VerifyReceipt[]
 }
 
 function newRunId(): string {
@@ -812,40 +907,76 @@ async function registerWorkflow(
       run.status = "finished"
       await putRun(run)
       await ctx.storage.set(`wf:value:${input.runId}`, input.value ?? null as any).catch(() => {})
-      const verdict = run.verify ? (run.verify.passed ? "verify-passed" : "verify-failed") : "finished"
-      return { content: JSON.stringify({ ok: run.verify ? run.verify.passed : true, runStatus: run.status, verdict, verify: run.verify ?? null }) }
+      const verifies = run.verifies ?? []
+      const allPassed = verifies.length ? verifies.every((v) => v.passed && v.attested) : true
+      const verdict = verifies.length ? (allPassed ? "verify-passed" : "verify-failed") : "finished"
+      return { content: JSON.stringify({ ok: verifies.length ? allPassed : true, runStatus: run.status, verdict, verify: run.verify ?? null, verifies: verifies.length ? verifies : null }) }
     },
   })
 
-  // record_verify — persists a verification receipt the ORCHESTRATOR obtained via the host shell tool.
-  // The plugin never executes verify commands itself: no model-supplied shell runs in the server process.
+  // verify — TRUSTED, host-attested verification. The plugin never executes the command and never
+  // accepts a caller-supplied exit code. It reads OpenCode's own tool-execution telemetry for a real
+  // shell run of the repo-owned trusted command and certifies from that.
   tools.push({
-    name: "workflow_record_verify",
+    name: "workflow_verify",
     description:
-      "Record a verification receipt for a run. Obtain command/exitCode by running the host's normal `shell` tool " +
-      "(so OpenCode's shell permission surface applies); this primitive only persists the observed result. " +
-      "The plugin NEVER executes verify commands itself.",
+      "Verify a run against a TRUSTED verifier. `verifyId` is looked up in the repo manifest (never model-supplied). " +
+      "The plugin does not execute the command and does not accept caller-supplied exit codes: run the trusted " +
+      "command yourself via the host's normal `shell` tool (OpenCode's shell permission surface) in THIS session, " +
+      "then call workflow_verify with the same verifyId. The runtime reads the host's own telemetry for that " +
+      "execution and certifies from it. No attested execution => the verification fails (it can never pass by assertion).",
     input: {
       type: "object",
       properties: {
-        runId: { type: "string" }, childSessionID: { type: "string" }, command: { type: "string" },
-        exitCode: { type: "number" }, stdoutTail: { type: "string" }, stderrTail: { type: "string" }, passed: { type: "boolean" },
+        runId: { type: "string" }, childSessionID: { type: "string" }, verifyId: { type: "string" },
       },
-      required: ["runId", "command"], additionalProperties: false,
+      required: ["runId", "verifyId"], additionalProperties: false,
     },
-    execute: async (input: any) => {
+    execute: async (input: any, tc: any) => {
       const run = await getRun(input.runId)
       if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
-      const passed = typeof input.passed === "boolean" ? input.passed : input.exitCode === 0
-      const receipt: VerifyReceipt = {
-        runId: input.runId, childSessionID: input.childSessionID, command: input.command,
-        exitCode: typeof input.exitCode === "number" ? input.exitCode : null, passed,
-        stdoutTail: input.stdoutTail, stderrTail: input.stderrTail, at: Date.now(),
+      if (run.status !== "open") return terminalError(run)
+      const trustedNow = trustedVerifies(manifest, repoRoot)
+      const command = trustedNow[String(input.verifyId)]
+      if (!command) {
+        return { content: JSON.stringify({ ok: false, status: "unknown-verify", passed: false, attested: false, verifyId: input.verifyId, error: `unknown verifyId (this repo defines: ${Object.keys(trustedNow).join(", ") || "none"})` }) }
       }
-      run.verify = { passed, command: input.command, at: receipt.at }
+      const callerSession = typeof tc?.sessionID === "string" ? tc.sessionID : undefined
+      const att = callerSession
+        ? (await ctx.storage.get(commandKey(callerSession, command)).catch(() => undefined)) as Attestation | undefined
+        : undefined
+      if (!att || typeof att.exitCode !== "number") {
+        const receipt: VerifyReceipt = {
+          runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId,
+          command, exitCode: att?.exitCode ?? null, passed: false, attested: false,
+          sessionID: callerSession, callID: att?.callID, at: Date.now(),
+        }
+        // a verification state is per verifyId: the latest attempt supersedes an earlier one
+        run.verifies = [...(run.verifies ?? []).filter((v) => v.verifyId !== input.verifyId), receipt]
+        run.verify = { passed: false, command, at: receipt.at }
+        await putRun(run)
+        await ctx.storage.set(`wf:verify:${input.runId}`, receipt as any).catch(() => {})
+        return { content: JSON.stringify({
+          ok: false, status: "no-attestation", passed: false, attested: false, verifyId: input.verifyId, command, callerSession,
+          hint: `run this exact command via the host shell tool, then call workflow_verify again: ${command}`, receipt,
+        }) }
+      }
+      // consume the attestation: one real host execution certifies exactly one verification (no replay)
+      await ctx.storage.remove(commandKey(callerSession!, command)).catch(() => {})
+      const passed = att.exitCode === 0
+      const receipt: VerifyReceipt = {
+        runId: input.runId, childSessionID: input.childSessionID, verifyId: input.verifyId,
+        command, exitCode: att.exitCode, passed, attested: true,
+        stdoutTail: att.stdoutTail, sessionID: att.sessionID, callID: att.callID, at: Date.now(),
+      }
+      run.verifies = [...(run.verifies ?? []).filter((v) => v.verifyId !== input.verifyId), receipt]
+      run.verify = { passed, command, at: receipt.at }
       await putRun(run)
-      await ctx.storage.set(`wf:verify:${input.runId}`, receipt as any)
-      return { content: JSON.stringify({ ok: true, passed, receipt }) }
+      await ctx.storage.set(`wf:verify:${input.runId}`, receipt as any).catch(() => {})
+      return { content: JSON.stringify({
+        ok: true, status: passed ? "verify-passed" : "verify-failed", passed, attested: true,
+        verifyId: input.verifyId, command, exitCode: att.exitCode, sessionID: att.sessionID, callID: att.callID, receipt,
+      }) }
     },
   })
 
@@ -857,8 +988,8 @@ async function registerWorkflow(
       "The agent's words are testimony; `sessionOutcome`, `guard`, and `verify` are mechanical. " +
       "Options: agentType ('ns:name'), label, phase, schema (JSON Schema subset), model, timeoutMs, worktree, " +
       "guardPaths (workspace-relative, snapshot+revert on touch; escapes are rejected), " +
-      "verifyId (looks up a trusted command from the repo manifest and returns it as a HINT for the caller to run " +
-      "via the host shell tool, then record with workflow_record_verify — the plugin never executes it).",
+      "verifyId (looks up a repo-owned trusted verifier command and returns it as a HINT; run it via the host " +
+      "shell tool, then call workflow_verify with the same verifyId — the plugin never executes it).",
     input: {
       type: "object",
       properties: {
@@ -994,11 +1125,14 @@ async function registerWorkflow(
         let guard: any
         if (snap) { guard = guardCheckAndRevert(snap); receipt.guard = guard }
 
-        // verify HINT only — the plugin never executes it. The orchestrator runs the trusted command via the host shell tool.
+        // verify HINT only — the plugin never executes it. The orchestrator runs the trusted command via the host shell tool,
+        // then calls workflow_verify (which certifies from the host's own telemetry of that execution).
         let verifyHint: any = null
         if (input.verifyId) {
-          const cmd = (manifest.cage?.verifies ?? {})[input.verifyId]
-          verifyHint = cmd ? { id: input.verifyId, command: cmd, executed: false } : { id: input.verifyId, error: "unknown verifyId" }
+          const cmd = trustedVerifies(manifest, repoRoot)[String(input.verifyId)]
+          verifyHint = cmd
+            ? { id: input.verifyId, command: cmd, executed: false, next: "run via the host shell tool, then call workflow_verify({runId, verifyId})" }
+            : { id: input.verifyId, error: "unknown verifyId" }
         }
 
         // structured output (real validation; a schema miss is a hard, reported status)
@@ -1032,7 +1166,7 @@ async function registerWorkflow(
           report: text, claim, guard: guard ?? null, verifyHint,
           output: output ?? null, worktree: worktreeDir ?? null, model: receipt.model ?? null, modelNote: modelNote ?? null,
           elapsedMs: Date.now() - startedAt,
-          testimony: "The agent's report and claim are testimony; status and guard are mechanical; verify is recorded separately via workflow_record_verify.",
+          testimony: "The agent's report and claim are testimony; status and guard are mechanical; verification is host-attested separately via workflow_verify.",
         }
         receipt.outcome = status; receipt.elapsedMs = result.elapsedMs
         await addReceipt(run.runId, receipt)
