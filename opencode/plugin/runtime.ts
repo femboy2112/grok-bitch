@@ -569,6 +569,55 @@ export function attestationIsFresh(attAt: number, challengeCreatedAt: number, bo
   return Number.isFinite(attAt) && attAt >= challengeCreatedAt && attAt >= boundAt
 }
 
+/** A verifier REQUESTED by a workflow step. Requesting creates a mandatory debt on the run. */
+export interface VerificationDebt {
+  verifyId: string
+  requestedAt: number
+  childSessionID?: string
+}
+
+export interface VerificationDebtResult {
+  ok: boolean
+  verdict: string
+  required: string[]
+  missing: string[]
+  failed: string[]
+  stale: string[]
+}
+
+/**
+ * Evaluate a run's verification debt (pure; unit-tested). A verifier requested by a step is a
+ * MANDATORY debt: the run may not finish green until the latest receipt for every required
+ * verifyId is host-attested, fresh, and passing. Observed-but-optional failing verifies also
+ * block (fail-closed). A later fresh pass for the same verifyId supersedes an earlier failure —
+ * work that was corrected and reverified is not permanently poisoned.
+ */
+export function evaluateVerificationDebts(
+  required: string[],
+  verifies: Array<{ verifyId?: string; passed: boolean; attested: boolean; fresh?: boolean }>,
+): VerificationDebtResult {
+  const latest = new Map<string, { verifyId?: string; passed: boolean; attested: boolean; fresh?: boolean }>()
+  for (const v of verifies) if (v.verifyId) latest.set(v.verifyId, v)
+  const missing: string[] = [], failed: string[] = [], stale: string[] = []
+  for (const id of required) {
+    const r = latest.get(id)
+    if (!r) { missing.push(id); continue }
+    if (r.passed && r.attested && r.fresh === true) continue
+    if (r.attested && r.fresh === false) stale.push(id); else failed.push(id)
+  }
+  // only the LATEST receipt per verifier is judged; a superseded failure does not poison the run
+  const observedLatest = [...latest.values()]
+  const allObservedFreshPass = observedLatest.length ? observedLatest.every((v) => v.passed && v.attested && v.fresh === true) : true
+  const ok = missing.length === 0 && stale.length === 0 && failed.length === 0 && allObservedFreshPass
+  let verdict: string
+  if (missing.length) verdict = "verify-missing"
+  else if (stale.length) verdict = "verify-stale"
+  else if (failed.length) verdict = "verify-failed"
+  else if (!ok) verdict = "verify-failed"
+  else verdict = (required.length || observedLatest.length) ? "verify-passed" : "finished"
+  return { ok, verdict, required: [...required], missing, failed, stale }
+}
+
 /** Live telemetry hook registration per plugin (re-registered on every setup, prior disposed). */
 const ATTEST_REG = new Map<string, { dispose?: () => any }>()
 
@@ -815,6 +864,8 @@ interface RunMeta {
   childSeq?: number
   /** completion time of the most recent workflow child — a freshness lower bound for verification. */
   lastChildAt?: number
+  /** verifier IDs requested by workflow steps; the run may not finish green until each is discharged. */
+  requiredVerifies?: VerificationDebt[]
   verify?: { passed: boolean; command: string; at: number } | null
   verifies?: VerifyReceipt[]
 }
@@ -943,14 +994,24 @@ async function registerWorkflow(
       const run = await getRun(input.runId)
       if (!run || run.pluginId !== manifest.id) return { content: JSON.stringify({ ok: false, error: "unknown runId for this plugin" }) }
       if (run.status !== "open") return terminalError(run)
+      // A verifier requested by a step is a mandatory debt. The run may not finish green while any
+      // required verifier lacks a fresh, host-attested, passing receipt. On unmet debt we DO NOT
+      // terminate: the caller may open a new challenge, reverify, and finish again.
+      const debts = evaluateVerificationDebts((run.requiredVerifies ?? []).map((d) => d.verifyId), run.verifies ?? [])
+      if (!debts.ok) {
+        return { content: JSON.stringify({
+          ok: false, runStatus: run.status, verdict: debts.verdict,
+          required: debts.required, missing: debts.missing, failed: debts.failed, stale: debts.stale,
+          error: "verification debt not discharged; open a fresh challenge, reverify, then finish again",
+        }) }
+      }
       run.status = "finished"
       await putRun(run)
       await ctx.storage.set(`wf:value:${input.runId}`, input.value ?? null as any).catch(() => {})
-      const verifies = run.verifies ?? []
-      // certification requires a fresh, host-attested pass — never testimony, never stale evidence
-      const allPassed = verifies.length ? verifies.every((v) => v.passed && v.attested && v.fresh !== false) : true
-      const verdict = verifies.length ? (allPassed ? "verify-passed" : "verify-failed") : "finished"
-      return { content: JSON.stringify({ ok: verifies.length ? allPassed : true, runStatus: run.status, verdict, verify: run.verify ?? null, verifies: verifies.length ? verifies : null }) }
+      return { content: JSON.stringify({
+        ok: true, runStatus: run.status, verdict: debts.verdict,
+        required: debts.required, verifies: (run.verifies ?? []).length ? run.verifies : null, verify: run.verify ?? null,
+      }) }
     },
   })
 
@@ -1100,7 +1161,9 @@ async function registerWorkflow(
       "Options: agentType ('ns:name'), label, phase, schema (JSON Schema subset), model, timeoutMs, worktree, " +
       "guardPaths (workspace-relative, snapshot+revert on touch; escapes are rejected), " +
       "verifyId (looks up a repo-owned trusted verifier command and returns it as a HINT; run it via the host " +
-      "shell tool, then call workflow_verify with the same verifyId — the plugin never executes it).",
+      "shell tool, then call workflow_verify with the same verifyId — the plugin never executes it). " +
+      "Requesting a verifier creates a MANDATORY verification debt: workflow_finish fails " +
+      "(verify-missing/verify-stale/verify-failed) until that verifyId has a fresh, host-attested, passing receipt.",
     input: {
       type: "object",
       properties: {
@@ -1118,6 +1181,19 @@ async function registerWorkflow(
         return { content: JSON.stringify({ ok: false, status: "executor-error", error: "unknown runId for this plugin" }) }
       }
       if (run.status !== "open") return terminalError(run)
+      // A requested verifier is a MANDATORY debt: recorded now, discharged only by a fresh,
+      // host-attested passing receipt. It is never inferred from the absence of a receipt.
+      if (input.verifyId) {
+        const knownVerify = trustedVerifies(manifest, repoRoot)[String(input.verifyId)]
+        if (knownVerify) {
+          const debt = run.requiredVerifies ?? []
+          if (!debt.some((d) => d.verifyId === String(input.verifyId))) {
+            debt.push({ verifyId: String(input.verifyId), requestedAt: Date.now(), childSessionID: input.childSessionID })
+          }
+          run.requiredVerifies = debt
+          await putRun(run)
+        }
+      }
       const label = input.label || input.agentType || "workflow agent"
       const startedAt = Date.now()
       let sessionID: string | undefined
@@ -1243,7 +1319,7 @@ async function registerWorkflow(
         if (input.verifyId) {
           const cmd = trustedVerifies(manifest, repoRoot)[String(input.verifyId)]
           verifyHint = cmd
-            ? { id: input.verifyId, command: cmd, executed: false, next: "call workflow_verify_prepare({runId, verifyId}), run this exact command via the host shell tool, then workflow_verify({runId, verifyId, challengeId})" }
+            ? { id: input.verifyId, command: cmd, executed: false, required: true, next: "call workflow_verify_prepare({runId, verifyId}), run this exact command via the host shell tool, then workflow_verify({runId, verifyId, challengeId}); workflow_finish fails until this passes fresh" }
             : { id: input.verifyId, error: "unknown verifyId" }
         }
 

@@ -5,7 +5,7 @@ import {
   parseFrontmatter, translateAgent, translateSkill, renderAgentFile,
   validateSchema, assertSupportedSchema, extractStructured, expandArguments,
   tokenizeArgs, parseOutcomeClaim, resolveTierModel, guardSnapshot, guardCheckAndRevert,
-  resolveConfined, SchemaError, attestationIsFresh, trustedVerifies,
+  resolveConfined, SchemaError, attestationIsFresh, trustedVerifies, evaluateVerificationDebts,
 } from "./runtime.ts"
 import { writeFileSync, mkdtempSync, readFileSync, existsSync, symlinkSync, mkdirSync, unlinkSync, chmodSync, statSync, readlinkSync, rmSync, rmdirSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -121,6 +121,37 @@ ok("stale: attestation before challenge (pre-run execution)", attestationIsFresh
 ok("stale: attestation after challenge but before last child change", attestationIsFresh(T1, T0, T2) === false)
 ok("fresh: exact boundary is allowed", attestationIsFresh(T1, T1, T1) === true)
 ok("stale: non-finite attestation time refused", attestationIsFresh(NaN, T0, T0) === false)
+
+// --- verification debt (requested verifier is mandatory) ---
+const vPass = { verifyId: "a", passed: true, attested: true, fresh: true }
+const vFail = { verifyId: "a", passed: false, attested: true, fresh: true }
+const vStale = { verifyId: "a", passed: false, attested: true, fresh: false }
+// A requested + skipped
+let d = evaluateVerificationDebts(["a"], [])
+ok("debt: requested+skipped -> verify-missing", d.ok === false && d.verdict === "verify-missing" && d.missing.includes("a"))
+// B requested + stale
+d = evaluateVerificationDebts(["a"], [vStale])
+ok("debt: requested+stale -> verify-stale", d.ok === false && d.verdict === "verify-stale" && d.stale.includes("a"))
+// C requested + fresh failed
+d = evaluateVerificationDebts(["a"], [vFail])
+ok("debt: requested+failed -> verify-failed", d.ok === false && d.verdict === "verify-failed" && d.failed.includes("a"))
+// D requested + fresh pass
+d = evaluateVerificationDebts(["a"], [vPass])
+ok("debt: requested+fresh pass -> ok", d.ok === true && d.verdict === "verify-passed")
+// E two required, only one passes
+d = evaluateVerificationDebts(["a", "b"], [vPass])
+ok("debt: partial -> verify-missing names the missing one", d.ok === false && d.missing.length === 1 && d.missing[0] === "b")
+// F failed then reverified fresh pass (latest wins)
+d = evaluateVerificationDebts(["a"], [vFail, vPass])
+ok("debt: failed-then-fresh-pass supersedes -> ok", d.ok === true && d.verdict === "verify-passed")
+// G no verifier requested -> plain finished (and an optional fresh pass is reported)
+d = evaluateVerificationDebts([], [])
+ok("debt: none requested -> finished", d.ok === true && d.verdict === "finished")
+d = evaluateVerificationDebts([], [vPass])
+ok("debt: optional fresh pass -> verify-passed", d.ok === true && d.verdict === "verify-passed")
+// fail-closed: an observed optional failure blocks finish
+d = evaluateVerificationDebts([], [vFail])
+ok("debt: observed optional failure blocks -> verify-failed", d.ok === false && d.verdict === "verify-failed")
 
 // --- guard snapshot/revert: byte-exact, recursive, confined ---
 const dir = mkdtempSync(join(tmpdir(), "guard-"))
