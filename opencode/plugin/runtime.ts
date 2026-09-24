@@ -634,6 +634,16 @@ function commandKey(sessionID: string, command: string): string {
   return `verify-attest:${sessionID}:${createHash("sha256").update(command).digest("hex").slice(0, 24)}`
 }
 
+/**
+ * Fail-closed gate: a requested verifier id that is not in the repo's trusted set must be
+ * rejected BEFORE any child executes (an explicitly requested gate never degrades to
+ * "no verification required"). Pure + unit-tested.
+ */
+export function isUnknownVerifyId(trusted: Record<string, string>, verifyId: unknown): boolean {
+  if (verifyId === undefined || verifyId === null || verifyId === "") return false
+  return !trusted[String(verifyId)]
+}
+
 function challengeKey(runId: string, challengeId: string): string {
   return `verify-challenge:${runId}:${challengeId}`
 }
@@ -1162,7 +1172,8 @@ async function registerWorkflow(
       "guardPaths (workspace-relative, snapshot+revert on touch; escapes are rejected), " +
       "verifyId (looks up a repo-owned trusted verifier command and returns it as a HINT; run it via the host " +
       "shell tool, then call workflow_verify with the same verifyId — the plugin never executes it). " +
-      "Requesting a verifier creates a MANDATORY verification debt: workflow_finish fails " +
+      "An UNKNOWN verifyId is rejected before any child is created (status \"unknown-verify\"). " +
+      "Requesting a known verifier creates a MANDATORY verification debt: workflow_finish fails " +
       "(verify-missing/verify-stale/verify-failed) until that verifyId has a fresh, host-attested, passing receipt.",
     input: {
       type: "object",
@@ -1181,18 +1192,25 @@ async function registerWorkflow(
         return { content: JSON.stringify({ ok: false, status: "executor-error", error: "unknown runId for this plugin" }) }
       }
       if (run.status !== "open") return terminalError(run)
-      // A requested verifier is a MANDATORY debt: recorded now, discharged only by a fresh,
-      // host-attested passing receipt. It is never inferred from the absence of a receipt.
+      // A requested verifier is a MANDATORY debt and must NAME a real trusted verifier. An unknown
+      // verifyId is rejected HERE — before any child session is created — so an explicitly requested
+      // gate can never silently degrade into "no verification required" (fail-closed). No session is
+      // spawned, no agent runs, no filesystem change occurs.
       if (input.verifyId) {
-        const knownVerify = trustedVerifies(manifest, repoRoot)[String(input.verifyId)]
-        if (knownVerify) {
-          const debt = run.requiredVerifies ?? []
-          if (!debt.some((d) => d.verifyId === String(input.verifyId))) {
-            debt.push({ verifyId: String(input.verifyId), requestedAt: Date.now(), childSessionID: input.childSessionID })
-          }
-          run.requiredVerifies = debt
-          await putRun(run)
+        const requested = String(input.verifyId)
+        const trustedNow = trustedVerifies(manifest, repoRoot)
+        if (isUnknownVerifyId(trustedNow, input.verifyId)) {
+          return { content: JSON.stringify({
+            ok: false, status: "unknown-verify", verifyId: requested, executed: false,
+            error: `unknown verifyId "${requested}" (this repo defines: ${Object.keys(trustedNow).join(", ") || "none"}); no child was created`,
+          }) }
         }
+        const debt = run.requiredVerifies ?? []
+        if (!debt.some((d) => d.verifyId === requested)) {
+          debt.push({ verifyId: requested, requestedAt: Date.now(), childSessionID: input.childSessionID })
+        }
+        run.requiredVerifies = debt
+        await putRun(run)
       }
       const label = input.label || input.agentType || "workflow agent"
       const startedAt = Date.now()

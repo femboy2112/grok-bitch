@@ -5,7 +5,7 @@ import {
   parseFrontmatter, translateAgent, translateSkill, renderAgentFile,
   validateSchema, assertSupportedSchema, extractStructured, expandArguments,
   tokenizeArgs, parseOutcomeClaim, resolveTierModel, guardSnapshot, guardCheckAndRevert,
-  resolveConfined, SchemaError, attestationIsFresh, trustedVerifies, evaluateVerificationDebts,
+  resolveConfined, SchemaError, attestationIsFresh, trustedVerifies, evaluateVerificationDebts, isUnknownVerifyId,
 } from "./runtime.ts"
 import { writeFileSync, mkdtempSync, readFileSync, existsSync, symlinkSync, mkdirSync, unlinkSync, chmodSync, statSync, readlinkSync, rmSync, rmdirSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -113,6 +113,10 @@ ok("unset inherits", resolveTierModel({ tiers: {}, agentNamespace: "x" }, "opus"
 const tv = trustedVerifies({ id: "x", agentNamespace: "x", cage: { verifies: { a: "python3 {root}/s.py", b: "true" } } }, "/repo")
 ok("verify {root} substituted", tv.a === "python3 /repo/s.py")
 ok("verify plain kept", tv.b === "true")
+// fail-closed gate: an unknown requested verifier must be rejected before execution
+ok("unknown verifyId rejected", isUnknownVerifyId(tv, "typo-validate") === true)
+ok("known verifyId accepted", isUnknownVerifyId(tv, "a") === false)
+ok("omitted verifyId not rejected", isUnknownVerifyId(tv, undefined) === false && isUnknownVerifyId(tv, "") === false)
 
 // --- freshness predicate (fresh-binding of verification attestations) ---
 const T0 = 1000, T1 = 2000, T2 = 3000

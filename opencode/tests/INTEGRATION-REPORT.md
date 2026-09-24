@@ -76,6 +76,25 @@ a fresh, host-attested, passing receipt; a later fresh pass supersedes an earlie
 
 Unit coverage: `evaluateVerificationDebts` (+ the freshness predicate) — **98 assertions PASS**.
 
+### Unknown requested verifier is rejected before execution (VERIFIED)
+
+A requested `verifyId` that is not in the repo's trusted set is rejected **before any child is
+created** — an explicitly requested gate never silently degrades into "no verification
+required" (fail-closed):
+
+```json
+workflow_agent({..., verifyId:"adpater-validate"})  ->  {"ok":false,"status":"unknown-verify",
+  "verifyId":"adpater-validate","executed":false,
+  "error":"unknown verifyId \"adpater-validate\" (this repo defines: adapter-validate); no child was created"}
+workflow_status(runId)                              ->  {"receipts":0}          # no child session, no agent run
+workflow_finish(runId)                              ->  {"ok":true,"verdict":"finished","required":[]}
+workflow_agent({..., verifyId:"adapter-validate"})  ->  debt recorded; finish -> {"verdict":"verify-missing"}
+valid fresh pass -> finish                          ->  {"ok":true,"verdict":"verify-passed"}
+omitted verifyId -> finish                          ->  {"ok":true,"verdict":"finished"}
+```
+
+Unit coverage: `isUnknownVerifyId` — adapter selftest now **101 assertions PASS**.
+
 ## 2. Guard directory bookkeeping (previously-restored-but-unreported)
 
 Live child (`project-zion:tank`) mutating a guarded path; snapshot + revert in the parent:

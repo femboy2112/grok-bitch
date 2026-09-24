@@ -14,7 +14,7 @@ export default defineHostPlugin({
       "adapter-validate": "python3 {root}/scripts/opencode-validate.py"
     }
   },
-  "canonicalRuntimeSha": "ac37aec7899a090332df07585ec8d364ba804896399f4ee7eaed050d67652078",
+  "canonicalRuntimeSha": "74b2755af2b5ae66fba2cde2f9d5da5f4757f48a956723b888ee15fe71dfda7c",
   "commandAliases": [
     "adventure-mode",
     "auto-rick",
