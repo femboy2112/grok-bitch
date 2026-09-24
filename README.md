@@ -466,12 +466,12 @@ The installer writes a managed **loader** `.ts`; generated agents are **copied**
   composed from OpenCode **Code Mode**. No model-authored string is ever evaluated by the
   plugin process (`new Function`/`eval` removed); the model's JS runs only in Code Mode's
   sandbox and reaches the world solely through permission-checked tools.
-- **Fresh-bound host-attested verification**: `workflow_verify_prepare({runId, verifyId})` opens a
-  single-use challenge; you run the repo-owned trusted command via the host `shell` tool; then
-  `workflow_verify({runId, verifyId, challengeId})` certifies only from OpenCode's own telemetry, only if
-  the execution postdates the challenge and the latest child completion. The caller cannot
-  supply the command or exit code; stale (`stale-attestation`) or absent (`no-attestation`)
-  evidence fails, and challenge+attestation are consumed (no replay).
+- **Fresh-bound host-attested verification**: `workflow_verify_prepare({runId, verifyId})` opens
+  a single-use challenge; you run the repo-owned trusted command via the host `shell` tool; then
+  `workflow_verify({runId, verifyId, challengeId})` certifies only from OpenCode's own telemetry, and
+  only if the execution postdates the challenge and the latest child completion. A verifier
+  requested by `workflow_agent(... verifyId)` becomes a **mandatory debt**: `workflow_finish`
+  fails (`verify-missing`/`verify-stale`/`verify-failed`) until a fresh attested pass is recorded.
 - `SubagentStop` completion hooks translated to child-session events, firing **only** for
   this plugin's own children or its own agent namespace.
 
@@ -483,5 +483,5 @@ The installer writes a managed **loader** `.ts`; generated agents are **copied**
   time; the committed `opencode/agents/*.md` stay provider-portable (no `model:` line).
 - Programmatic sessions cannot set a native `parentID` (OpenCode create drops it); ownership
   is recorded metadata, and the session's `idle.outcome` is the completion contract.
-- No hosted `/workflows` pane — inspect runs with the `workflow_status` primitive.
-- Server plugins have no toast API; hook advisories are durable and read via `workflow_status`.
+
+See `opencode/host/TRANSLATION.md` for the exact mapping and boundaries.

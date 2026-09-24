@@ -29,11 +29,37 @@ bash scripts/opencode-uninstall.sh    # removes only the loader + installed agen
 
 ## What OpenCode gains
 
-- Commands registered as `grok-bitch/<name>` (namespace-safe under simultaneous installs).
-- Skills registered from the canonical directories (no content copied).
-- Generated agents `grok-bitch/<name>` with closed, deny-first permissions.
-- Workflow primitives composed from OpenCode Code Mode (safe; no `new Function`), including
-  **fresh-bound host-attested** `workflow_verify_prepare` + `workflow_verify` (no self-certification).
-- `SubagentStop` completion hooks translated to child-session events (own children only).
+- Commands registered as **`grok-bitch/<name>`** (namespace-safe when every plugin is installed).
+- Skills registered by id through the installed OpenCode `Skill.Info` contract (`path`).
+- Generated agents **`grok-bitch/<name>`** with a **closed, deny-first**
+  permission allowlist translated from the canonical `tools:` list — an explicitly
+  read-only agent cannot silently keep shell/edit/subagent capability.
+- **Workflow primitives** (`grok-bitch.workflow_start/agent/phase/log/status/verify_prepare/verify/cancel/finish`)
+  composed from OpenCode **Code Mode**. No model-authored string is ever evaluated by the
+  plugin process (`new Function`/`eval` removed); the model's JS runs only in Code Mode's
+  sandbox and reaches the world solely through permission-checked tools.
+- **Fresh-bound host-attested verification**: `workflow_verify_prepare({runId, verifyId})` opens
+  a single-use challenge; you run the repo-owned trusted command via the host `shell` tool; then
+  `workflow_verify({runId, verifyId, challengeId})` certifies only from OpenCode's own telemetry, and
+  only if the execution postdates the challenge and the latest child completion. A verifier
+  requested by `workflow_agent(... verifyId)` becomes a **mandatory debt**: `workflow_finish`
+  fails (`verify-missing`/`verify-stale`/`verify-failed`) until a fresh attested pass is recorded.
+- `SubagentStop` completion hooks translated to child-session events, firing **only** for
+  this plugin's own children or its own agent namespace.
 
+## grok-bitch is a Rick & Morty orchestrator
+
+**CURRENT —** grok-bitch is a **Rick & Morty multi-agent orchestrator with a deterministic
+cage/verification discipline**:
+
+- **Rick** — the handler/orchestrator: plans, delegates bounded steps, verifies independently.
+- **Morty** — the bounded, untrusted-by-default executor: does one well-specified step.
+- **cage** — bounded scope, protected-path guard + revert, a verification gate, never
+  self-certify, hand back if too large/ambiguous, no autonomous push/deploy/delete.
+
+**HISTORICAL —** the original external **Grok/xAI executor** that gave the project its name.
+It was retired; the name stayed, the runtime moved on.
+
+**NOT CURRENT —** grok-bitch does **not** manage or call Grok, does **not** integrate xAI,
+and does **not** wrap a Grok CLI or Grok runtime. There is no xAI dependency.
 See `opencode/host/TRANSLATION.md` for the semantics table and boundaries.

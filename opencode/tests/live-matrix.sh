@@ -34,6 +34,11 @@ opencode run --standalone --auto --model "$MODEL" "Do exactly this. Print raw JS
 3. const p=await tools[\"grok-bitch\"].workflow_verify_prepare({runId, verifyId:\"adapter-validate\"}); parse challengeId.
 4. const v=await tools[\"grok-bitch\"].workflow_verify({runId, verifyId:\"adapter-validate\", challengeId}); print JSON.stringify(v)." 2>&1 | grep -E "^RESULT:"
 
+echo "== 3b. requested verifier skipped => finish fails (verify-missing) =="
+opencode run --standalone --auto --model "$MODEL" "Do exactly this. Print raw JSON per step prefixed by RESULT:.
+1. const s=await tools[\"grok-bitch\"].workflow_start({name:\"live-debt-skip\"}); const a=await tools[\"grok-bitch\"].workflow_agent({runId:s.runId, agentType:\"grok-bitch:morty\", prompt:\"Reply with one word: aye\", verifyId:\"adapter-validate\"});
+2. const f=await tools[\"grok-bitch\"].workflow_finish({runId:s.runId}); print JSON.stringify(f)." 2>&1 | grep -E "^RESULT:"
+
 echo "== 4. four-plugin coexistence (one job per namespace, cold host) =="
 opencode run --standalone --auto --model "$MODEL" "Run all steps, then print EXACTLY one final line beginning RESULT:.
 A: const s=await tools[\"grok-bitch\"].workflow_start({name:\"co\"}); const r=await tools[\"grok-bitch\"].workflow_agent({runId:s.runId,prompt:\"Reply one word: aye\",agentType:\"grok-bitch:morty\"}); gb=r.agentID.

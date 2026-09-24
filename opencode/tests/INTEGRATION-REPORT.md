@@ -57,6 +57,25 @@ B: {"status":"stale-attestation","attested":true,"fresh":false,"exitCode":0,
 executions in agent sessions (both the shared service and a cold `--standalone` server); the
 orchestrator must therefore run the trusted command in **its own** session (as designed).
 
+### Verifier debt — a requested verifier is mandatory (VERIFIED)
+
+`workflow_agent(... verifyId:"X")` records `X` as a **required** verifier (never inferred
+from the absence of a receipt). `workflow_finish` evaluates the required set against the
+latest receipt per verifier and fails without terminating while any required verifier lacks
+a fresh, host-attested, passing receipt; a later fresh pass supersedes an earlier failure.
+
+| case | live result |
+| --- | --- |
+| **A** requested + skipped | `ok:false, verdict:"verify-missing", missing:["adapter-validate"]`, run stays `open` |
+| **B** requested + stale | `ok:false, verdict:"verify-stale", stale:["adapter-validate"]`, run stays `open` |
+| **C** requested + fresh failure | `ok:false, verdict:"verify-failed", failed:["always-fail"]`, run stays `open` |
+| **D** requested + fresh pass | `ok:true, verdict:"verify-passed"` |
+| **E** two required, one passes | `ok:false, verdict:"verify-missing", required:["adapter-validate","smoke"], missing:["smoke"]` |
+| **F** stale/failed then reverified fresh pass | `ok:true, verdict:"verify-passed"` (latest receipt supersedes) |
+| **G** no verifier requested | `ok:true, verdict:"finished"` |
+
+Unit coverage: `evaluateVerificationDebts` (+ the freshness predicate) — **98 assertions PASS**.
+
 ## 2. Guard directory bookkeeping (previously-restored-but-unreported)
 
 Live child (`project-zion:tank`) mutating a guarded path; snapshot + revert in the parent:

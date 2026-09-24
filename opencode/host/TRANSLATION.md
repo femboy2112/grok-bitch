@@ -69,9 +69,22 @@ replay, and the telemetry source is the host's own execution — the caller only
 *which* trusted verifier to request, never the evidence. The plugin never `spawn`s a
 model-supplied command.
 
+**Requested verification is a mandatory debt.** `workflow_agent(... verifyId:"X")` records
+`X` as required (distinct from *completed* verification; it is never inferred from the
+absence of a receipt). `workflow_finish` computes the required set against the latest
+receipt per verifier and fails unless every required verifier has a fresh, host-attested,
+**passing** receipt:
+
+- missing ⇒ `verdict:"verify-missing"`; stale ⇒ `verify-stale`; failed/unattested ⇒ `verify-failed`;
+- on unmet debt the run is **not** terminated, so the caller can open a new challenge,
+  reverify, and finish again (a corrected-and-reverified run is not permanently poisoned);
+- a run with no requested verifier finishes normally (`verdict:"finished"`).
+
 **State machine:** `OPEN → FINISHED | CANCELLED`, both terminal. After a terminal state,
 `workflow_agent`/`workflow_phase`/`workflow_log`/`workflow_verify_prepare`/`workflow_verify`/`workflow_finish`
 return explicit `{ok:false,status:"terminal"}` errors; `workflow_cancel` is idempotent only.
+A `workflow_finish` that fails on an **unmet verification debt** does **not** terminate the
+run — the caller discharges the debt and finishes again.
 
 **Status contract:** `{ ok, status, report, claim, guard, verifyHint, output, childSessionID }`.
 - `status` ∈ `done | handed-back | too-big | guard-touch | guard-rejected | schema-error | executor-error | interrupted`.
