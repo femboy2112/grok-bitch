@@ -60,6 +60,6 @@ export default defineHostPlugin({
     "sonnet": "directed"
   },
   "tiers": {},
-  "version": "2.3.0",
+  "version": "2.3.1",
   "workflow": true
 })
