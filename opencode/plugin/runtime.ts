@@ -102,10 +102,32 @@ export function parseFrontmatter(source: string): { data: Record<string, any>; b
   const head = text.slice(3, end).replace(/^\n/, "")
   const body = text.slice(end + 4).replace(/^\n/, "")
   const data: Record<string, any> = {}
-  for (const line of head.split("\n")) {
-    const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line)
+  const lines = head.split("\n")
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(lines[i])
     if (!m) continue
     let value = m[2].trim()
+    // YAML block list: `key:` (empty value) followed by indented `- item` lines.
+    // Parsing these is load-bearing for security: a `tools:` written as a block list
+    // must yield the real allowlist, never collapse to "" (which used to fail OPEN,
+    // handing a would-be restricted agent full capability). See translateAgent.
+    if (value === "") {
+      const items: string[] = []
+      let j = i + 1
+      for (; j < lines.length && /^\s*-\s+/.test(lines[j]); j++) {
+        let it = lines[j].replace(/^\s*-\s+/, "").trim()
+        if (/^".*"$/.test(it) || /^'.*'$/.test(it)) it = it.slice(1, -1)
+        if (it) items.push(it)
+      }
+      if (items.length) { data[m[1]] = items; i = j - 1; continue }
+      data[m[1]] = ""
+      continue
+    }
+    // YAML inline flow list: `key: [a, b, c]`
+    if (/^\[.*\]$/.test(value)) {
+      data[m[1]] = value.slice(1, -1).split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean)
+      continue
+    }
     if (/^".*"$/.test(value) || /^'.*'$/.test(value)) value = value.slice(1, -1)
     data[m[1]] = value
   }
@@ -289,9 +311,14 @@ export function translateAgent(
   const colorMap = { ...DEFAULT_COLORS, ...(manifest.colorMap ?? {}) }
 
   const boundaries: string[] = []
-  const rawTools = typeof data.tools === "string"
-    ? data.tools.split(",").map((t: string) => t.trim()).filter(Boolean)
-    : undefined
+  // Accept both the canonical comma-string form (`tools: Read, Bash`) and a YAML list
+  // (block or inline), which parseFrontmatter now yields as an array. Both must produce
+  // the SAME closed allowlist — a list form must never fall through to the broad default.
+  const rawTools = Array.isArray(data.tools)
+    ? data.tools.map((t: any) => String(t).trim()).filter(Boolean)
+    : typeof data.tools === "string"
+      ? data.tools.split(",").map((t: string) => t.trim()).filter(Boolean)
+      : undefined
   const permissions: Array<{ action: string; resource: string; effect: string }> = []
   if (rawTools && rawTools.length) {
     // CLOSED allowlist: deny everything first, then grant only what the canonical list names.
@@ -305,8 +332,18 @@ export function translateAgent(
     }
     for (const action of actions) permissions.push({ action, resource: "*", effect: "allow" })
   } else {
-    // No explicit allowlist in canonical metadata: preserve the agent's broad default.
-    permissions.push({ action: "*", resource: "*", effect: "allow" })
+    // FAIL CLOSED: no parseable `tools:` metadata => grant NOTHING (deny-first only).
+    // A security cage must never silently hand an agent full shell/edit/subagent
+    // capability because its metadata was missing, empty, or in a shape the parser
+    // didn't recognize — that was a fail-OPEN bug that inverted this file's own
+    // "closed, deny-first" guarantee. Capability must be declared; regeneration
+    // surfaces the lockdown as a boundary so it is never silent.
+    permissions.push({ action: "*", resource: "*", effect: "deny" })
+    boundaries.push(
+      data.tools === undefined
+        ? "no tools declared — closed to all capability (deny-first)"
+        : "tools present but empty/unparseable — closed to all capability (deny-first)",
+    )
   }
 
   // Model tier intent is preserved but resolved at runtime (see resolveModel).
@@ -738,6 +775,10 @@ export function defineHostPlugin(manifest: HostManifest): { id: string; setup: (
           } catch { /* telemetry must never break a tool call */ }
         }
         try {
+          // dispose any prior registration for this plugin id — the host re-runs setup() on
+          // hot-reload, and leaving the old execute.after subscribed leaks a handler each time.
+          const prior = ATTEST_REG.get(manifest.id)
+          if (prior?.dispose) { try { await prior.dispose() } catch { /* best effort */ } }
           await ctx.tool.hook("execute.before", () => { /* keep parity with the probed registration */ })
           const reg = await ctx.tool.hook("execute.after", onAfter)
           ATTEST_REG.set(manifest.id, reg)
@@ -891,18 +932,35 @@ async function registerWorkflow(
   const ns = manifest.id
   const tools: any[] = []
 
+  // Per-run in-process serialization. The plugin runs in ONE JS event loop; parallel
+  // workflow_agent calls (the documented Promise.all pattern) interleave at await points
+  // and would otherwise lose read-modify-write updates to run state — a dropped verify debt
+  // (silently bypassing a mandatory gate) or an under-counted lastChildAt (weakening the
+  // freshness bound). A promise-chain mutex per runId makes each critical section atomic.
+  const runLocks = new Map<string, Promise<void>>()
+  const withRunLock = async <T>(runId: string, fn: () => Promise<T>): Promise<T> => {
+    const prev = runLocks.get(runId) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((res) => { release = res })
+    const chained = prev.then(() => gate)
+    runLocks.set(runId, chained)
+    await prev.catch(() => {})
+    try { return await fn() }
+    finally { release(); if (runLocks.get(runId) === chained) runLocks.delete(runId) }
+  }
+
   const getRun = async (runId: string): Promise<RunMeta | undefined> =>
     (await ctx.storage.get(`wf:run:${runId}`).catch(() => undefined)) as RunMeta | undefined
   const putRun = async (run: RunMeta) => ctx.storage.set(`wf:run:${run.runId}`, run as any)
-  const addReceipt = async (runId: string, r: any) => {
+  const addReceipt = async (runId: string, r: any) => withRunLock(runId, async () => {
     const list = ((await ctx.storage.get(`wf:receipts:${runId}`).catch(() => undefined)) as any[]) ?? []
     list.push(r)
     await ctx.storage.set(`wf:receipts:${runId}`, list as any)
-  }
-  const markChildCompleted = async (runId: string) => {
+  })
+  const markChildCompleted = async (runId: string) => withRunLock(runId, async () => {
     const r = await getRun(runId)
     if (r) { r.lastChildAt = Date.now(); await putRun(r) }
-  }
+  })
   const registerLive = (runId: string, sid: string) => {
     if (!live.has(runId)) live.set(runId, new Set())
     live.get(runId)!.add(sid)
@@ -1205,18 +1263,26 @@ async function registerWorkflow(
             error: `unknown verifyId "${requested}" (this repo defines: ${Object.keys(trustedNow).join(", ") || "none"}); no child was created`,
           }) }
         }
-        const debt = run.requiredVerifies ?? []
-        if (!debt.some((d) => d.verifyId === requested)) {
-          debt.push({ verifyId: requested, requestedAt: Date.now(), childSessionID: input.childSessionID })
-        }
-        run.requiredVerifies = debt
-        await putRun(run)
+        // register the mandatory debt atomically: re-read inside the lock so a parallel
+        // step's debt (Promise.all) can't be clobbered by this write and silently dropped.
+        await withRunLock(run.runId, async () => {
+          const cur = await getRun(run.runId)
+          if (!cur) return
+          const debt = cur.requiredVerifies ?? []
+          if (!debt.some((d) => d.verifyId === requested)) {
+            debt.push({ verifyId: requested, requestedAt: Date.now(), childSessionID: input.childSessionID })
+          }
+          cur.requiredVerifies = debt
+          await putRun(cur)
+        })
       }
       const label = input.label || input.agentType || "workflow agent"
       const startedAt = Date.now()
       let sessionID: string | undefined
       let worktreeDir: string | undefined
       let worktreeProjectID: string | undefined
+      let snap: GuardSnapshot | undefined   // hoisted so `finally` can revert on a mid-step throw
+      let guardReverted = false
       const onAbort = async () => { if (sessionID) { try { await ctx.session.interrupt({ sessionID, resume: false }) } catch { /* best effort */ } } }
       tc?.signal?.addEventListener?.("abort", onAbort, { once: true })
       try {
@@ -1292,16 +1358,29 @@ async function registerWorkflow(
         const workRoot = worktreeDir ?? (await ctx.session.get({ sessionID }).catch(() => undefined))?.location?.directory ?? repoRoot
 
         // guard snapshot: model paths are untrusted + workspace-confined; manifest defaults are trusted.
-        let snap: GuardSnapshot | undefined
+        // Snapshot the TRUSTED manifest defaults FIRST, so a bad model-supplied guardPath can never
+        // abort snapshotting (and thereby skip protecting) the repo-owned defaults.
         let guardError: string | undefined
         try {
           const entries: GuardEntry[] = []
           const modelGuard: string[] = (input.guardPaths ?? []) as string[]
           const defaultGuard: string[] = (manifest.cage?.defaultProtected ?? []) as string[]
-          if (modelGuard.length) entries.push(...guardSnapshot(workRoot, modelGuard, false).entries)
           if (defaultGuard.length) entries.push(...guardSnapshot(workRoot, defaultGuard, true).entries)
+          if (modelGuard.length) entries.push(...guardSnapshot(workRoot, modelGuard, false).entries)
           snap = entries.length ? { root: workRoot, entries } : undefined
         } catch (e: any) { guardError = e?.message ?? String(e) }
+
+        // FAIL CLOSED: if any protected path could not be snapshotted, do NOT run the child.
+        // The old code prompted the agent anyway and only reported "guard-rejected" AFTER the
+        // step — i.e. it ran UNGUARDED and any mutation went un-reverted. A guard that cannot
+        // be established is a hard stop BEFORE any prompt or filesystem change.
+        if (guardError) {
+          try { await ctx.session.interrupt({ sessionID, resume: false }) } catch { /* best effort */ }
+          clearLive(run.runId, sessionID)
+          await addReceipt(run.runId, { pluginId: manifest.id, runId: run.runId, sessionID, label, outcome: "guard-rejected", error: guardError, elapsedMs: Date.now() - startedAt }).catch(() => {})
+          await markChildCompleted(run.runId).catch(() => {})
+          return { content: JSON.stringify({ ok: false, status: "guard-rejected", executed: false, error: guardError, childSessionID: sessionID ?? null }) }
+        }
 
         // run
         const timeoutMs = typeof input.timeoutMs === "number" ? input.timeoutMs : undefined
@@ -1328,7 +1407,7 @@ async function registerWorkflow(
 
         // guard check + revert (mechanical)
         let guard: any
-        if (snap) { guard = guardCheckAndRevert(snap); receipt.guard = guard }
+        if (snap) { guard = guardCheckAndRevert(snap); guardReverted = true; receipt.guard = guard }
 
         // verify HINT only — the plugin never executes it. The orchestrator calls workflow_verify_prepare,
         // runs the trusted command via the host shell tool, then calls workflow_verify (which certifies from
@@ -1391,6 +1470,10 @@ async function registerWorkflow(
       } finally {
         tc?.signal?.removeEventListener?.("abort", onAbort)
         if (sessionID) clearLive(run.runId, sessionID)
+        // exception-safe revert: if the step threw AFTER the snapshot but BEFORE the happy-path
+        // revert, any protected-path mutation would otherwise never be undone. (Moot for a
+        // worktree run — the whole worktree is removed just below — but load-bearing in-place.)
+        if (snap && !guardReverted) { try { guardCheckAndRevert(snap) } catch { /* best effort */ } }
         if (worktreeDir && worktreeProjectID) {
           try {
             await ctx.worktree.remove({ projectID: worktreeProjectID, directory: worktreeDir, force: true })

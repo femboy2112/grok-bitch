@@ -30,7 +30,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runtime", action="store_true")
     ap.add_argument("--live", action="store_true")
-    ap.add_argument("--model", default=os.environ.get("OPENCODE_MODEL", "ollama/deepseek-v4.1-flash:cloud"))
+    ap.add_argument("--model", default=os.environ.get("OPENCODE_MODEL"))  # None => let the host pick its default model (no fictional pin)
     a = ap.parse_args()
     m = json.loads(MANIFEST.read_text())
     check(m.get("id") and m.get("agentNamespace"), "manifest parses with id + namespace")
@@ -144,10 +144,16 @@ def main():
 
     if a.live:
         if m.get("workflow"):
-            r = sh(["opencode", "run", "--model", a.model,
-                    f'Call tools["{m["id"]}"].workflow_status with runId "probe-missing" and report the raw returned text.'],
-                   timeout=240, cwd=str(REPO))
-            check(r.returncode == 0 and "unknown runId" in r.stdout, "workflow primitives reachable in Code Mode")
+            # No fictional default model: pass --model only when explicitly given (flag or
+            # OPENCODE_MODEL); otherwise let the host use its own configured default so this
+            # probe is portable to any machine, not pinned to one provider's catalog.
+            run_cmd = ["opencode", "run"]
+            if a.model:
+                run_cmd += ["--model", a.model]
+            run_cmd.append(f'Call tools["{m["id"]}"].workflow_status with runId "probe-missing" and report the raw returned text.')
+            r = sh(run_cmd, timeout=240, cwd=str(REPO))
+            check(r.returncode == 0 and "unknown runId" in r.stdout,
+                  "workflow primitives reachable in Code Mode" + ("" if a.model else " (host default model)"))
         else:
             notes.append("live probe skipped (no workflow runtime for this plugin)")
 

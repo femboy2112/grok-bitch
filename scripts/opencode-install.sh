@@ -21,8 +21,12 @@ AGENTS_SRC="$REPO_ROOT/opencode/agents"
 AGENTS_TARGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/agents"
 AGENTS_TARGET="$AGENTS_TARGET_DIR/grok-bitch"
 mkdir -p "$AGENTS_TARGET_DIR"
-if [ -e "$AGENTS_TARGET" ] && [ ! -f "$AGENTS_TARGET/.managed-by" ]; then
-  echo "refusing to overwrite unowned $AGENTS_TARGET" >&2; exit 1
+if [ -e "$AGENTS_TARGET" ]; then
+  # owned only if the marker exists AND names THIS repo — matches uninstall's content check,
+  # so a different checkout of the same plugin can't silently rm -rf a dir it doesn't own.
+  if [ ! -f "$AGENTS_TARGET/.managed-by" ] || [ "$(cat "$AGENTS_TARGET/.managed-by")" != "$REPO_ROOT" ]; then
+    echo "refusing to overwrite $AGENTS_TARGET not owned by this repo" >&2; exit 1
+  fi
 fi
 rm -rf "$AGENTS_TARGET"
 python3 "$REPO_ROOT/scripts/opencode-apply-tiers.py" "$AGENTS_SRC" "$AGENTS_TARGET" "$REPO_ROOT" || { echo "apply-tiers failed" >&2; exit 1; }

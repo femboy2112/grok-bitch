@@ -14,7 +14,7 @@ export default defineHostPlugin({
       "adapter-validate": "python3 {root}/scripts/opencode-validate.py"
     }
   },
-  "canonicalRuntimeSha": "74b2755af2b5ae66fba2cde2f9d5da5f4757f48a956723b888ee15fe71dfda7c",
+  "canonicalRuntimeSha": "35fca17ca45ad44be1717445aa870797e179736d011ac965432ddf3d7f0b68f1",
   "commandAliases": [
     "adventure-mode",
     "auto-rick",
@@ -60,6 +60,6 @@ export default defineHostPlugin({
     "sonnet": "directed"
   },
   "tiers": {},
-  "version": "2.2.2",
+  "version": "2.3.0",
   "workflow": true
 })

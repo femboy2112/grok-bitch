@@ -23,6 +23,10 @@ const fm = parseFrontmatter('---\ndescription: "A: b"\nmodel: opus\n---\nBODY')
 ok("quoted value with colon", fm.data.description === "A: b")
 ok("plain value", fm.data.model === "opus")
 ok("body extracted", fm.body.includes("BODY"))
+const fmList = parseFrontmatter("---\ntools:\n  - Read\n  - Bash\n---\nB")
+ok("frontmatter parses yaml block list -> array", Array.isArray(fmList.data.tools) && fmList.data.tools.length === 2 && fmList.data.tools[0] === "Read" && fmList.data.tools[1] === "Bash")
+const fmInline = parseFrontmatter("---\ntools: [Read, Grep]\n---\nB")
+ok("frontmatter parses inline flow list -> array", Array.isArray(fmInline.data.tools) && fmInline.data.tools.length === 2 && fmInline.data.tools[1] === "Grep")
 
 // --- agent translation: CLOSED allowlist ---
 const agent = translateAgent(
@@ -40,7 +44,19 @@ ok("subagent not granted when Agent absent", !agent.permissions.some((p) => p.ac
 const withAgent = translateAgent("---\ntools: Agent, Read\n---\nB", "/x/a.md", { id: "gb", name: "gb", agentNamespace: "gb" })
 ok("Agent -> subagent granted", withAgent.permissions.some((p) => p.action === "subagent" && p.effect === "allow"))
 const noTools = translateAgent("---\ndescription: x\n---\nB", "/x/a.md", { id: "p", name: "p" })
-ok("no tools -> broad allow (canonical had none)", noTools.permissions[0].effect === "allow" && noTools.permissions[0].action === "*")
+ok("no tools -> deny-all (FAIL-CLOSED, was fail-open)", noTools.permissions.length === 1 && noTools.permissions[0].effect === "deny" && noTools.permissions[0].action === "*")
+ok("no tools -> boundary records the lockdown", noTools.__boundaries.some((b) => b.includes("no tools declared")))
+// SECURITY REGRESSION: a `tools:` written as a YAML list must produce the SAME closed
+// allowlist as the comma-string form — never collapse to "" and fail OPEN (grant everything).
+const yamlAgent = translateAgent("---\ndescription: y\ntools:\n  - Read\n  - Bash\n---\nB", "/x/y.md", { id: "gb", name: "gb", agentNamespace: "gb" })
+ok("yaml-list tools -> deny-first", yamlAgent.permissions[0].effect === "deny" && yamlAgent.permissions[0].action === "*")
+ok("yaml-list tools -> read granted", yamlAgent.permissions.some((p) => p.action === "read" && p.effect === "allow"))
+ok("yaml-list tools -> shell granted", yamlAgent.permissions.some((p) => p.action === "shell" && p.effect === "allow"))
+ok("yaml-list tools -> edit NOT granted (no fail-open)", !yamlAgent.permissions.some((p) => p.action === "edit"))
+const yamlInline = translateAgent("---\ntools: [Read, Grep]\n---\nB", "/x/z.md", { id: "gb", name: "gb", agentNamespace: "gb" })
+ok("inline-list tools -> deny-first + read granted", yamlInline.permissions[0].effect === "deny" && yamlInline.permissions.some((p) => p.action === "read" && p.effect === "allow"))
+const emptyTools = translateAgent("---\ntools: \n---\nB", "/x/e.md", { id: "gb", name: "gb", agentNamespace: "gb" })
+ok("empty tools -> deny-all (FAIL-CLOSED)", emptyTools.permissions.length === 1 && emptyTools.permissions[0].effect === "deny")
 ok("model alias carried, not a machine model", agent.modelAlias === "haiku" && !("model" in agent))
 
 // rendered file is portable and closed
